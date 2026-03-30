@@ -1,51 +1,75 @@
-"""Command-line entry point for the TTC graph analysis project.
-
-This file wires together:
-    - GTFS loading
-    - metric computation
-    - edge recommendation
-    - Plotly visualization
-"""
+"""Command-line entry point for the TTC graph analysis project."""
 
 from __future__ import annotations
 
+import argparse
 from pathlib import Path
 
 from data_loader import build_graph_from_gtfs
-from metrics import (
-    compute_network_metrics,
-    find_best_new_connection,
-    top_k_central_stations,
-)
-from visualization import show_network_figure
+from graph import Graph
+from metrics import EdgeRecommendation, NetworkMetrics, compute_network_metrics, find_best_new_connection, top_k_central_stations
 
 
-def print_summary(graph_metrics: object, top_stations: list[tuple[str, float]]) -> None:
-    """Print the main metric summary for the project report.
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Analyze and optimize the Toronto TTC network using graph algorithms.",
+    )
+    parser.add_argument("--data-dir", type=Path, default=Path("data"), help="Directory containing GTFS files.")
+    parser.add_argument("--stops-file", type=str, default="stops.txt", help="GTFS stops file name.")
+    parser.add_argument("--stop-times-file", type=str, default="stop_times.txt", help="GTFS stop_times file name.")
+    parser.add_argument("--routes-file", type=str, default="routes.txt", help="GTFS routes file name.")
+    parser.add_argument(
+        "--max-distance-km",
+        type=float,
+        default=None,
+        help="Optional maximum geographic distance for candidate new edges.",
+    )
+    parser.add_argument(
+        "--html-output",
+        type=Path,
+        default=Path("output/ttc_network_analysis.html"),
+        help="Path where the Plotly HTML visualization should be written.",
+    )
+    parser.add_argument(
+        "--no-visualization",
+        action="store_true",
+        help="Skip writing the Plotly visualization HTML file.",
+    )
+    return parser.parse_args()
 
-    TODO:
-        Replace the loose ``object`` annotation with ``NetworkMetrics`` if you
-        want stricter typing and import clarity in this module.
-    """
+
+def validate_input_files(stops_path: Path, stop_times_path: Path, routes_path: Path) -> None:
+    """Raise a helpful error if any required GTFS files are missing."""
+    missing_paths = [path for path in (stops_path, stop_times_path, routes_path) if not path.exists()]
+    if missing_paths:
+        missing_text = ", ".join(str(path) for path in missing_paths)
+        raise FileNotFoundError(f"Missing required GTFS file(s): {missing_text}")
+
+
+def format_station_label(graph: Graph, node_id: str) -> str:
+    """Return a human-readable label for a node."""
+    station = graph.stations.get(node_id)
+    return station.name if station is not None else node_id
+
+
+def print_summary(graph: Graph, graph_metrics: NetworkMetrics, top_stations: list[tuple[str, float]]) -> None:
+    """Print the main metric summary for the project."""
     print("TTC Network Summary")
     print("-" * 40)
+    print(f"Stations analyzed: {graph.node_count()}")
     print(f"Average shortest path: {graph_metrics.average_shortest_path:.3f}")
     print(f"Diameter: {graph_metrics.diameter:.3f}")
     print(f"Global efficiency: {graph_metrics.global_efficiency:.6f}")
     print()
     print("Top 5 stations by centrality:")
 
-    for station_id, score in top_stations:
-        print(f"  - {station_id}: {score:.3f}")
+    for node_id, score in top_stations:
+        print(f"  - {format_station_label(graph, node_id)}: {score:.3f}")
 
 
-def print_recommendation(recommendation: object | None) -> None:
-    """Print the best proposed new edge, if one was found.
-
-    TODO:
-        Replace the loose ``object`` annotation with ``EdgeRecommendation`` once
-        the module interface is finalized.
-    """
+def print_recommendation(graph: Graph, recommendation: EdgeRecommendation | None) -> None:
+    """Print the best proposed new edge, if one was found."""
     print()
     print("Best New Connection")
     print("-" * 40)
@@ -54,35 +78,50 @@ def print_recommendation(recommendation: object | None) -> None:
         print("No candidate edge recommendation was produced.")
         return
 
-    print(f"Source: {recommendation.source}")
-    print(f"Target: {recommendation.target}")
-    print(f"Estimated weight: {recommendation.weight:.3f}")
+    print(f"Source: {format_station_label(graph, recommendation.source)}")
+    print(f"Target: {format_station_label(graph, recommendation.target)}")
+    print(f"Estimated weight: {recommendation.weight:.3f} seconds")
     print(f"Improvement: {recommendation.improvement_percent:.2f}%")
 
 
+def maybe_write_visualization(
+    graph: Graph,
+    graph_metrics: NetworkMetrics,
+    recommendation: EdgeRecommendation | None,
+    html_output: Path,
+) -> None:
+    """Write the interactive Plotly figure if visualization is enabled."""
+    from visualization import save_network_figure
+
+    output_path = save_network_figure(
+        graph,
+        graph_metrics.betweenness_centrality,
+        recommendation,
+        html_output,
+    )
+    print()
+    print(f"Visualization saved to: {output_path}")
+
+
 def main() -> None:
-    """Run the TTC graph analysis workflow.
+    """Run the TTC graph analysis workflow."""
+    args = parse_args()
+    data_dir = args.data_dir
+    stops_path = data_dir / args.stops_file
+    stop_times_path = data_dir / args.stop_times_file
+    routes_path = data_dir / args.routes_file
 
-    TODO:
-        Replace these placeholder file paths with:
-            - command-line arguments
-            - a config file
-            - or constants pointing at your GTFS data directory
-    """
-    data_dir = Path("data")
-    stops_path = data_dir / "stops.txt"
-    stop_times_path = data_dir / "stop_times.txt"
-    routes_path = data_dir / "routes.txt"
-
-    # TODO: Add friendly error handling for missing files before parsing.
+    validate_input_files(stops_path, stop_times_path, routes_path)
     graph = build_graph_from_gtfs(stops_path, stop_times_path, routes_path)
     graph_metrics = compute_network_metrics(graph)
     top_stations = top_k_central_stations(graph_metrics.betweenness_centrality, k=5)
-    recommendation = find_best_new_connection(graph)
+    recommendation = find_best_new_connection(graph, max_distance_km=args.max_distance_km)
 
-    print_summary(graph_metrics, top_stations)
-    print_recommendation(recommendation)
-    show_network_figure(graph, graph_metrics.betweenness_centrality, recommendation)
+    print_summary(graph, graph_metrics, top_stations)
+    print_recommendation(graph, recommendation)
+
+    if not args.no_visualization:
+        maybe_write_visualization(graph, graph_metrics, recommendation, args.html_output)
 
 
 if __name__ == "__main__":

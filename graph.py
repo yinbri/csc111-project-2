@@ -1,25 +1,13 @@
-"""Core graph data structures for the TTC network project.
-
-This module intentionally avoids using ``networkx`` for graph logic.
-The goal is to provide a lightweight, student-friendly graph class that
-supports weighted edges and the algorithms needed by the project.
-"""
+"""Core graph data structures for the TTC network project."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, frozen=True)
 class Station:
-    """Represent a TTC station or stop in the graph.
-
-    Attributes:
-        stop_id: Unique GTFS stop identifier.
-        name: Human-readable station name.
-        latitude: Geographic latitude.
-        longitude: Geographic longitude.
-    """
+    """Represent a station-level node in the TTC network."""
 
     stop_id: str
     name: str
@@ -29,49 +17,35 @@ class Station:
 
 @dataclass
 class Graph:
-    """Weighted graph using adjacency dictionaries.
+    """Weighted graph implemented with adjacency dictionaries.
 
-    Representation invariant:
-        - ``adjacency[u][v]`` is the weight of the edge from ``u`` to ``v``.
-        - All edge weights are non-negative.
-        - Each node in ``adjacency`` may optionally have metadata in ``stations``.
-
-    Design note:
-        The project prompt describes the graph as station-based and weighted by
-        travel time between consecutive stops. This class is intentionally kept
-        generic so that graph algorithms can be tested independently of GTFS
-        parsing.
+    The project models a transit network, so this graph is undirected by
+    default and edge weights represent travel time in seconds.
     """
 
     adjacency: dict[str, dict[str, float]] = field(default_factory=dict)
     stations: dict[str, Station] = field(default_factory=dict)
 
     def add_station(self, station: Station) -> None:
-        """Add a station node to the graph.
-
-        TODO:
-            Decide whether duplicate ``stop_id`` values should overwrite
-            existing station metadata or raise an error.
-        """
+        """Add a station node and its metadata to the graph."""
         self.stations[station.stop_id] = station
         self.adjacency.setdefault(station.stop_id, {})
 
     def add_node(self, node: str) -> None:
-        """Add a node to the adjacency structure if it does not exist yet."""
+        """Add a node to the graph if it does not already exist."""
         self.adjacency.setdefault(node, {})
 
     def add_edge(self, source: str, target: str, weight: float, *, bidirectional: bool = True) -> None:
         """Add a weighted edge to the graph.
 
-        Args:
-            source: Starting node ID.
-            target: Ending node ID.
-            weight: Non-negative edge weight, usually travel time in seconds.
-            bidirectional: Whether to mirror the edge in the reverse direction.
-
-        TODO:
-            Validate the weight and decide how to handle zero-weight edges.
+        Raises:
+            ValueError: If the weight is negative or either endpoint is empty.
         """
+        if not source or not target:
+            raise ValueError("source and target must be non-empty node IDs")
+        if weight < 0:
+            raise ValueError("edge weights must be non-negative")
+
         self.add_node(source)
         self.add_node(target)
         self.adjacency[source][target] = weight
@@ -80,58 +54,56 @@ class Graph:
             self.adjacency[target][source] = weight
 
     def remove_edge(self, source: str, target: str, *, bidirectional: bool = True) -> None:
-        """Remove an edge from the graph if present.
-
-        TODO:
-            Decide whether missing edges should silently do nothing or raise.
-        """
-        if source in self.adjacency:
-            self.adjacency[source].pop(target, None)
-
-        if bidirectional and target in self.adjacency:
-            self.adjacency[target].pop(source, None)
+        """Remove an edge from the graph if it exists."""
+        self.adjacency.get(source, {}).pop(target, None)
+        if bidirectional:
+            self.adjacency.get(target, {}).pop(source, None)
 
     def has_edge(self, source: str, target: str) -> bool:
         """Return whether an edge exists from ``source`` to ``target``."""
         return target in self.adjacency.get(source, {})
 
     def neighbors(self, node: str) -> dict[str, float]:
-        """Return a mapping of neighbors and edge weights for ``node``."""
+        """Return the neighbors of ``node`` and their weights."""
         return self.adjacency.get(node, {})
 
     def degree(self, node: str) -> int:
-        """Return the degree of ``node`` based on adjacency entries."""
+        """Return the number of adjacent neighbors for ``node``."""
         return len(self.adjacency.get(node, {}))
 
+    def node_count(self) -> int:
+        """Return the number of nodes in the graph."""
+        return len(self.adjacency)
+
     def nodes(self) -> list[str]:
-        """Return a list of node IDs in the graph."""
+        """Return the node IDs in the graph."""
         return list(self.adjacency.keys())
 
-    def edges(self) -> list[tuple[str, str, float]]:
-        """Return all edges in the graph.
-
-        TODO:
-            If the graph is treated as undirected, deduplicate symmetric edges
-            before reporting or visualizing them.
-        """
+    def undirected_edges(self) -> list[tuple[str, str, float]]:
+        """Return a deduplicated list of edges for an undirected graph."""
         output: list[tuple[str, str, float]] = []
+        seen: set[frozenset[str]] = set()
 
         for source, neighbors in self.adjacency.items():
             for target, weight in neighbors.items():
+                edge_key = frozenset((source, target))
+                if edge_key in seen:
+                    continue
+                seen.add(edge_key)
                 output.append((source, target, weight))
 
         return output
 
-    def copy(self) -> Graph:
-        """Return a shallow structural copy of the graph.
+    def average_edge_weight(self) -> float:
+        """Return the average weight across undirected edges."""
+        edges = self.undirected_edges()
+        if not edges:
+            return 0.0
+        return sum(weight for _, _, weight in edges) / len(edges)
 
-        Note:
-            The station objects themselves are reused, which is fine for this
-            project because station metadata is expected to be immutable.
-        """
-        new_graph = Graph()
-        new_graph.stations = dict(self.stations)
-        new_graph.adjacency = {
-            node: dict(neighbors) for node, neighbors in self.adjacency.items()
-        }
-        return new_graph
+    def copy(self) -> Graph:
+        """Return a structural copy of the graph."""
+        return Graph(
+            adjacency={node: dict(neighbors) for node, neighbors in self.adjacency.items()},
+            stations=dict(self.stations),
+        )

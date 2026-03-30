@@ -1,35 +1,70 @@
-# TTC Transit Network Project Scaffold
+# TTC Transit Network Analysis
 
-This repository contains a starter framework for analyzing and optimizing the
-Toronto TTC transit network using graph algorithms.
+This project analyzes and optimizes the Toronto TTC transit network using a
+custom weighted graph implementation built from GTFS data.
+
+## Features
+
+- Builds a station-level weighted graph from `stops.txt`, `stop_times.txt`, and `routes.txt`
+- Uses Dijkstra's algorithm for weighted shortest paths
+- Computes:
+  - average shortest path length
+  - network diameter
+  - global efficiency
+  - betweenness centrality
+- Brute-forces the best new connection to improve global efficiency
+- Generates an interactive Plotly visualization with:
+  - station hover info
+  - centrality coloring
+  - recommended new edge highlighted in red
 
 ## Files
 
-- `main.py`: Entry point that connects loading, analytics, and visualization
-- `graph.py`: Core graph and station data structures
-- `data_loader.py`: GTFS parsing and graph construction helpers
-- `metrics.py`: Shortest paths, efficiency, diameter, centrality, and edge search
-- `visualization.py`: Plotly traces and figure assembly
+- `main.py`: Command-line entry point
+- `graph.py`: Core graph and station classes
+- `data_loader.py`: GTFS parsing and graph construction
+- `metrics.py`: Algorithms and analytics
+- `visualization.py`: Plotly visualization helpers
+- `requirements.txt`: Python dependency list
 
-## What Is Included
+## Setup
 
-- Class and function structure
-- Type hints
-- Docstrings explaining intended behavior
-- `TODO` markers where implementation decisions still need to be made
-- Comments that point to likely next steps
+Install the dependency:
 
-## Suggested Next Steps
+```bash
+pip install -r requirements.txt
+```
 
-1. Create a `data/` folder and add `stops.txt`, `stop_times.txt`, and `routes.txt`.
-2. Implement `estimate_candidate_edge_weight` in `metrics.py`.
-3. Replace the placeholder geographic-distance helper with a real formula.
-4. Decide how repeated GTFS edges should be aggregated.
-5. Improve `betweenness_centrality` if you want more accurate scores.
+Add your GTFS files to the `data/` directory:
 
-## Notes
+- `data/stops.txt`
+- `data/stop_times.txt`
+- `data/routes.txt`
 
-- The scaffold avoids `networkx` for core graph logic as requested.
-- `visualization.py` expects `plotly` to be installed in your Python environment.
-- Some functions intentionally raise `NotImplementedError` until you choose a
-  final strategy for the project.
+## Usage
+
+Run the full analysis:
+
+```bash
+python3 main.py
+```
+
+Optional arguments:
+
+```bash
+python3 main.py --max-distance-km 5 --html-output output/network.html
+python3 main.py --no-visualization
+```
+
+## Output
+
+The program prints:
+
+- average shortest path
+- diameter
+- global efficiency
+- top 5 stations by centrality
+- best new edge and percent improvement
+
+When visualization is enabled, it also writes an HTML Plotly file to the
+configured output path.
