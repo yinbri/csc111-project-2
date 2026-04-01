@@ -19,11 +19,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--stops-file", type=str, default="stops.txt", help="GTFS stops file name.")
     parser.add_argument("--stop-times-file", type=str, default="stop_times.txt", help="GTFS stop_times file name.")
     parser.add_argument("--routes-file", type=str, default="routes.txt", help="GTFS routes file name.")
+    parser.add_argument("--trips-file", type=str, default="trips.txt", help="GTFS trips file name.")
     parser.add_argument(
         "--max-distance-km",
         type=float,
-        default=None,
-        help="Optional maximum geographic distance for candidate new edges.",
+        default=2.0,
+        help="Maximum geographic distance for candidate new edges. Default is 2.0 km.",
     )
     parser.add_argument(
         "--html-output",
@@ -36,12 +37,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip writing the Plotly visualization HTML file.",
     )
+    parser.add_argument(
+        "--include-all-routes",
+        action="store_true",
+        help="Analyze the full TTC feed instead of defaulting to subway routes only.",
+    )
     return parser.parse_args()
 
 
-def validate_input_files(stops_path: Path, stop_times_path: Path, routes_path: Path) -> None:
+def validate_input_files(stops_path: Path, stop_times_path: Path, routes_path: Path, trips_path: Path) -> None:
     """Raise a helpful error if any required GTFS files are missing."""
-    missing_paths = [path for path in (stops_path, stop_times_path, routes_path) if not path.exists()]
+    missing_paths = [path for path in (stops_path, stop_times_path, routes_path, trips_path) if not path.exists()]
     if missing_paths:
         missing_text = ", ".join(str(path) for path in missing_paths)
         raise FileNotFoundError(f"Missing required GTFS file(s): {missing_text}")
@@ -110,9 +116,17 @@ def main() -> None:
     stops_path = data_dir / args.stops_file
     stop_times_path = data_dir / args.stop_times_file
     routes_path = data_dir / args.routes_file
+    trips_path = data_dir / args.trips_file
 
-    validate_input_files(stops_path, stop_times_path, routes_path)
-    graph = build_graph_from_gtfs(stops_path, stop_times_path, routes_path)
+    validate_input_files(stops_path, stop_times_path, routes_path, trips_path)
+    route_types = None if args.include_all_routes else {"1"}
+    graph = build_graph_from_gtfs(
+        stops_path,
+        stop_times_path,
+        routes_path,
+        trips_path,
+        route_types=route_types,
+    )
     graph_metrics = compute_network_metrics(graph)
     top_stations = top_k_central_stations(graph_metrics.betweenness_centrality, k=5)
     recommendation = find_best_new_connection(graph, max_distance_km=args.max_distance_km)

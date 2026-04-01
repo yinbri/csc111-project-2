@@ -40,6 +40,7 @@ Add your GTFS files to the `data/` directory:
 - `data/stops.txt`
 - `data/stop_times.txt`
 - `data/routes.txt`
+- `data/trips.txt`
 
 ## Usage
 
@@ -49,12 +50,22 @@ Run the full analysis:
 python3 main.py
 ```
 
+By default, the program analyzes TTC subway routes only so the graph stays in a
+manageable project-sized range. To analyze the full TTC feed instead:
+
+```bash
+python3 main.py --include-all-routes
+```
+
 Optional arguments:
 
 ```bash
 python3 main.py --max-distance-km 5 --html-output output/network.html
 python3 main.py --no-visualization
 ```
+
+The optimizer defaults to considering candidate new edges within 2 km so the
+search stays practical on the real TTC feed.
 
 ## Output
 

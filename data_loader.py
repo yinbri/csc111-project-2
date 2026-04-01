@@ -31,6 +31,15 @@ class RouteRecord:
     route_type: str
 
 
+@dataclass(slots=True, frozen=True)
+class TripRecord:
+    """Represent a single row from ``trips.txt``."""
+
+    route_id: str
+    service_id: str
+    trip_id: str
+
+
 def parse_time_to_seconds(time_str: str) -> int:
     """Convert a GTFS time string like ``HH:MM:SS`` to total seconds.
 
@@ -111,6 +120,30 @@ def load_routes(routes_path: str | Path) -> list[RouteRecord]:
     return routes
 
 
+def load_trips(trips_path: str | Path) -> list[TripRecord]:
+    """Load trip metadata from ``trips.txt``."""
+    trips: list[TripRecord] = []
+
+    with Path(trips_path).open(newline="", encoding="utf-8") as csv_file:
+        reader = csv.DictReader(csv_file)
+        for row in reader:
+            trip_id = row.get("trip_id", "").strip()
+            route_id = row.get("route_id", "").strip()
+            service_id = row.get("service_id", "").strip()
+            if not trip_id or not route_id:
+                continue
+
+            trips.append(
+                TripRecord(
+                    route_id=route_id,
+                    service_id=service_id,
+                    trip_id=trip_id,
+                )
+            )
+
+    return trips
+
+
 def group_stop_times_by_trip(stop_times: list[StopTimeRecord]) -> dict[str, list[StopTimeRecord]]:
     """Group stop-time records by trip and sort them by stop sequence."""
     grouped: dict[str, list[StopTimeRecord]] = defaultdict(list)
@@ -174,6 +207,8 @@ def build_graph_from_gtfs(
     stops_path: str | Path,
     stop_times_path: str | Path,
     routes_path: str | Path | None = None,
+    trips_path: str | Path | None = None,
+    route_types: set[str] | None = None,
 ) -> Graph:
     """Build a station-level weighted graph from GTFS files.
 
@@ -183,17 +218,26 @@ def build_graph_from_gtfs(
     raw_stops = load_stops(stops_path)
     station_map, stop_id_to_station_id = aggregate_stations_by_name(raw_stops)
 
-    if routes_path is not None and Path(routes_path).exists():
-        load_routes(routes_path)
-
-    graph = Graph()
-    for station in station_map.values():
-        graph.add_station(station)
+    allowed_trip_ids: set[str] | None = None
+    if (
+        routes_path is not None
+        and trips_path is not None
+        and Path(routes_path).exists()
+        and Path(trips_path).exists()
+        and route_types is not None
+    ):
+        routes = load_routes(routes_path)
+        route_ids = {route.route_id for route in routes if route.route_type in route_types}
+        trips = load_trips(trips_path)
+        allowed_trip_ids = {trip.trip_id for trip in trips if trip.route_id in route_ids}
 
     stop_times = load_stop_times(stop_times_path)
+    if allowed_trip_ids is not None:
+        stop_times = [record for record in stop_times if record.trip_id in allowed_trip_ids]
     trips = group_stop_times_by_trip(stop_times)
     edge_totals: dict[frozenset[str], float] = defaultdict(float)
     edge_counts: dict[frozenset[str], int] = defaultdict(int)
+    used_station_ids: set[str] = set()
 
     for records in trips.values():
         for index in range(len(records) - 1):
@@ -209,6 +253,14 @@ def build_graph_from_gtfs(
             edge_key = frozenset((source, target))
             edge_totals[edge_key] += travel_time
             edge_counts[edge_key] += 1
+            used_station_ids.add(source)
+            used_station_ids.add(target)
+
+    graph = Graph()
+    for station_id in used_station_ids:
+        station = station_map.get(station_id)
+        if station is not None:
+            graph.add_station(station)
 
     for edge_key, total_weight in edge_totals.items():
         source, target = tuple(edge_key)
