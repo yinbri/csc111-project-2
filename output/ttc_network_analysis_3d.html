@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TTC Transit Network Analysis 3D</title>
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.css">
+  <script src="https://unpkg.com/maplibre-gl@5.20.0/dist/maplibre-gl.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      background: #0b1220;
+      color: #e5e7eb;
+    }
+
+    #map {
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .panel {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 1;
+      max-width: 320px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: rgba(11, 18, 32, 0.86);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(6px);
+    }
+
+    .panel h1 {
+      margin: 0 0 8px;
+      font-size: 1.15rem;
+    }
+
+    .panel p {
+      margin: 0;
+      line-height: 1.45;
+      font-size: 0.92rem;
+      color: #cbd5e1;
+    }
+
+    .legend {
+      margin-top: 12px;
+      display: grid;
+      gap: 6px;
+      font-size: 0.84rem;
+    }
+
+    .controls {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(148, 163, 184, 0.28);
+      display: grid;
+      gap: 10px;
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      color: #e2e8f0;
+    }
+
+    .toggle input {
+      width: 16px;
+      height: 16px;
+      accent-color: #38bdf8;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      flex: 0 0 auto;
+    }
+
+    .swatch-line {
+      width: 18px;
+      height: 4px;
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h1>TTC Network 3D View</h1>
+    <p>
+      Explore the TTC graph on a 3D Toronto basemap. Drag to orbit, zoom in to
+      see extruded buildings, and click stations for centrality details.
+    </p>
+    <div class="legend">
+      <div class="legend-item"><span class="swatch" style="background:#38bdf8"></span>Stations</div>
+      <div class="legend-item"><span class="swatch-line" style="background:#94a3b8"></span>Existing edges</div>
+      <div class="legend-item"><span class="swatch-line" style="background:#ef4444"></span>Recommended edge</div>
+    </div>
+    <div class="controls">
+      <label class="toggle">
+        <input id="buildings-toggle" type="checkbox" checked>
+        Show 3D buildings with real map height data
+      </label>
+    </div>
+  </div>
+  <div id="map"></div>
+  <script>
+    const stationData = {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.26365493333333, 43.7322656]}, "properties": {"stop_id": "Kennedy Station", "name": "Kennedy Station", "degree": 1, "centrality": 0.0, "radius": 6.0}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.40428525, 43.6678415]}, "properties": {"stop_id": "Spadina Station", "name": "Spadina Station", "degree": 3, "centrality": 1372.0, "radius": 13.86}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.47577820000001, 43.6518282]}, "properties": {"stop_id": "Runnymede Station", "name": "Runnymede Station", "degree": 2, "centrality": 325.0, "radius": 7.86}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.523454, 43.783359]}, "properties": {"stop_id": "Highway 407 Station", "name": "Highway 407 Station", "degree": 2, "centrality": 69.0, "radius": 6.4}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.42667633333333, 43.6622825]}, "properties": {"stop_id": "Ossington Station", "name": "Ossington Station", "degree": 2, "centrality": 649.0, "radius": 9.72}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.39268185714286, 43.68784471428571]}, "properties": {"stop_id": "St Clair Station", "name": "St Clair Station", "degree": 2, "centrality": 649.0, "radius": 9.72}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.38668799999999, 43.651099]}, "properties": {"stop_id": "Osgoode Station", "name": "Osgoode Station", "degree": 2, "centrality": 121.0, "radius": 6.69}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.41828233333332, 43.66424066666667]}, "properties": {"stop_id": "Christie Station", "name": "Christie Station", "degree": 2, "centrality": 696.0, "radius": 9.99}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.390939, 43.669999000000004]}, "properties": {"stop_id": "Bay Station", "name": "Bay Station", "degree": 2, "centrality": 1125.0, "radius": 12.44}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.4361587, 43.699512]}, "properties": {"stop_id": "Cedarvale Station", "name": "Cedarvale Station", "degree": 2, "centrality": 649.0, "radius": 9.72}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.3856535, 43.6705465]}, "properties": {"stop_id": "Bloor Station", "name": "Bloor Station", "degree": 3, "centrality": 999.0, "radius": 11.72}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.3863725, 43.671023]}, "properties": {"stop_id": "Yonge Station", "name": "Yonge Station", "degree": 3, "centrality": 1397.0, "radius": 14.0}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.34611415384614, 43.77581184615384]}, "properties": {"stop_id": "Don Mills Station", "name": "Don Mills Station", "degree": 1, "centrality": 0.0, "radius": 6.0}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.31274375, 43.686474000000004]}, "properties": {"stop_id": "Woodbine Station", "name": "Woodbine Station", "degree": 2, "centrality": 264.0, "radius": 7.51}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.3761675, 43.6721385]}, "properties": {"stop_id": "Sherbourne Station", "name": "Sherbourne Station", "degree": 2, "centrality": 696.0, "radius": 9.99}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.38818800000001, 43.654649]}, "properties": {"stop_id": "St Patrick Station", "name": "St Patrick Station", "degree": 2, "centrality": 176.0, "radius": 7.01}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.40620190909091, 43.744977909090906]}, "properties": {"stop_id": "York Mills Station", "name": "York Mills Station", "degree": 2, "centrality": 441.0, "radius": 8.53}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.37788800000001, 43.649049]}, "properties": {"stop_id": "King Station", "name": "King Station", "degree": 2, "centrality": 64.0, "radius": 6.37}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.38288800000001, 43.660799]}, "properties": {"stop_id": "College Station", "name": "College Station", "degree": 2, "centrality": 203.0, "radius": 7.16}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.39888127272728, 43.705482454545454]}, "properties": {"stop_id": "Eglinton Station", "name": "Eglinton Station", "degree": 2, "centrality": 549.0, "radius": 9.14}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.5105384, 43.6483232]}, "properties": {"stop_id": "Royal York Station", "name": "Royal York Station", "degree": 2, "centrality": 136.0, "radius": 6.78}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.49459525, 43.64999075]}, "properties": {"stop_id": "Old Mill Station", "name": "Old Mill Station", "degree": 2, "centrality": 201.0, "radius": 7.15}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.390489, 43.659899]}, "properties": {"stop_id": "Queen's Park Station", "name": "Queen's Park Station", "degree": 2, "centrality": 231.0, "radius": 7.32}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.41130749999999, 43.66604775]}, "properties": {"stop_id": "Bathurst Station", "name": "Bathurst Station", "degree": 2, "centrality": 741.0, "radius": 10.24}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.36679725, 43.770880500000004]}, "properties": {"stop_id": "Leslie Station", "name": "Leslie Station", "degree": 2, "centrality": 69.0, "radius": 6.4}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.527906, 43.794021]}, "properties": {"stop_id": "Vaughan Metropolitan Centre Station", "name": "Vaughan Metropolitan Centre Station", "degree": 1, "centrality": 0.0, "radius": 6.0}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.38012866666666, 43.64568333333333]}, "properties": {"stop_id": "Union Station", "name": "Union Station", "degree": 2, "centrality": 65.0, "radius": 6.37}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.412542, 43.767947]}, "properties": {"stop_id": "North York Centre Station", "name": "North York Centre Station", "degree": 2, "centrality": 69.0, "radius": 6.4}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.44749200000001, 43.724598]}, "properties": {"stop_id": "Yorkdale Station", "name": "Yorkdale Station", "degree": 2, "centrality": 496.0, "radius": 8.84}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.442467, 43.65928]}, "properties": {"stop_id": "Lansdowne Station", "name": "Lansdowne Station", "degree": 2, "centrality": 549.0, "radius": 9.14}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.50928483333333, 43.77684275000001]}, "properties": {"stop_id": "Pioneer Village Station", "name": "Pioneer Village Station", "degree": 2, "centrality": 136.0, "radius": 6.78}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.39098899999999, 43.682699]}, "properties": {"stop_id": "Summerhill Station", "name": "Summerhill Station", "degree": 2, "centrality": 696.0, "radius": 9.99}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.478693, 43.753311]}, "properties": {"stop_id": "Downsview Park Station", "name": "Downsview Park Station", "degree": 2, "centrality": 325.0, "radius": 7.86}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.524379, 43.6450752]}, "properties": {"stop_id": "Islington Station", "name": "Islington Station", "degree": 2, "centrality": 69.0, "radius": 6.4}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.384788, 43.647649]}, "properties": {"stop_id": "St Andrew Station", "name": "St Andrew Station", "degree": 2, "centrality": 79.0, "radius": 6.45}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.33809725, 43.680998]}, "properties": {"stop_id": "Donlands Station", "name": "Donlands Station", "degree": 2, "centrality": 441.0, "radius": 8.53}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.4508073125, 43.7346363125]}, "properties": {"stop_id": "Wilson Station", "name": "Wilson Station", "degree": 2, "centrality": 441.0, "radius": 8.53}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.379388, 43.652749]}, "properties": {"stop_id": "Queen Station", "name": "Queen Station", "degree": 2, "centrality": 91.0, "radius": 6.52}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.41145111111112, 43.76152177777778]}, "properties": {"stop_id": "Sheppard-Yonge Station", "name": "Sheppard-Yonge Station", "degree": 3, "centrality": 392.0, "radius": 8.24}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.499888, 43.774097]}, "properties": {"stop_id": "York University", "name": "York University", "degree": 2, "centrality": 201.0, "radius": 7.15}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.490905875, 43.764541125]}, "properties": {"stop_id": "Finch West Station", "name": "Finch West Station", "degree": 2, "centrality": 264.0, "radius": 7.51}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.45966116666666, 43.65550433333333]}, "properties": {"stop_id": "Keele Station", "name": "Keele Station", "degree": 2, "centrality": 441.0, "radius": 8.53}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.330676, 43.682650333333335]}, "properties": {"stop_id": "Greenwood Station", "name": "Greenwood Station", "degree": 2, "centrality": 384.0, "radius": 8.2}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.4068895, 43.674349]}, "properties": {"stop_id": "Dupont Station", "name": "Dupont Station", "degree": 2, "centrality": 741.0, "radius": 10.24}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.369062, 43.673600199999996]}, "properties": {"stop_id": "Castle Frank Station", "name": "Castle Frank Station", "degree": 2, "centrality": 649.0, "radius": 9.72}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.44410388888889, 43.71562733333334]}, "properties": {"stop_id": "Lawrence West Station", "name": "Lawrence West Station", "degree": 2, "centrality": 549.0, "radius": 9.14}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.3986618, 43.6684502]}, "properties": {"stop_id": "St George Station", "name": "St George Station", "degree": 3, "centrality": 1329.0, "radius": 13.61}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.41548766666666, 43.684406833333334]}, "properties": {"stop_id": "St Clair West Station", "name": "St Clair West Station", "degree": 2, "centrality": 696.0, "radius": 9.99}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.393189, 43.666599]}, "properties": {"stop_id": "Museum Station", "name": "Museum Station", "degree": 2, "centrality": 287.0, "radius": 7.64}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.3584225, 43.67686325]}, "properties": {"stop_id": "Broadview Station", "name": "Broadview Station", "degree": 2, "centrality": 600.0, "radius": 9.44}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.3763285, 43.769249]}, "properties": {"stop_id": "Bessarion Station", "name": "Bessarion Station", "degree": 2, "centrality": 136.0, "radius": 6.78}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.43478999999999, 43.660699]}, "properties": {"stop_id": "Dufferin Station", "name": "Dufferin Station", "degree": 2, "centrality": 600.0, "radius": 9.44}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.3867165, 43.7669115]}, "properties": {"stop_id": "Bayview Station", "name": "Bayview Station", "degree": 2, "centrality": 201.0, "radius": 7.15}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.41497208333332, 43.780787333333336]}, "properties": {"stop_id": "Finch Station", "name": "Finch Station", "degree": 1, "centrality": 0.0, "radius": 6.0}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.380988, 43.656549]}, "properties": {"stop_id": "TMU Station", "name": "TMU Station", "degree": 2, "centrality": 147.0, "radius": 6.84}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.3525195, 43.678296]}, "properties": {"stop_id": "Chester Station", "name": "Chester Station", "degree": 2, "centrality": 549.0, "radius": 9.14}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.38851766666666, 43.67671266666667]}, "properties": {"stop_id": "Rosedale Station", "name": "Rosedale Station", "degree": 2, "centrality": 741.0, "radius": 10.24}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.4528865, 43.656992333333335]}, "properties": {"stop_id": "Dundas West Station", "name": "Dundas West Station", "degree": 2, "centrality": 496.0, "radius": 8.84}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.38370549999999, 43.6654405]}, "properties": {"stop_id": "Wellesley Station", "name": "Wellesley Station", "degree": 2, "centrality": 258.0, "radius": 7.48}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.3970155, 43.69768125]}, "properties": {"stop_id": "Davisville Station", "name": "Davisville Station", "degree": 2, "centrality": 600.0, "radius": 9.44}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.28870928571428, 43.69444714285714]}, "properties": {"stop_id": "Victoria Park Station", "name": "Victoria Park Station", "degree": 2, "centrality": 136.0, "radius": 6.78}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.44088675, 43.7090645]}, "properties": {"stop_id": "Glencairn Station", "name": "Glencairn Station", "degree": 2, "centrality": 600.0, "radius": 9.44}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.46698075, 43.6538605]}, "properties": {"stop_id": "High Park Station", "name": "High Park Station", "degree": 2, "centrality": 384.0, "radius": 8.2}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.3229386, 43.6841964]}, "properties": {"stop_id": "Coxwell Station", "name": "Coxwell Station", "degree": 2, "centrality": 325.0, "radius": 7.86}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.48372016666667, 43.649984499999995]}, "properties": {"stop_id": "Jane Station", "name": "Jane Station", "degree": 2, "centrality": 264.0, "radius": 7.51}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.279749625, 43.7107545]}, "properties": {"stop_id": "Warden Station", "name": "Warden Station", "degree": 2, "centrality": 69.0, "radius": 6.4}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.344937, 43.679799]}, "properties": {"stop_id": "Pape Station", "name": "Pape Station", "degree": 2, "centrality": 496.0, "radius": 8.84}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.301559125, 43.689074875]}, "properties": {"stop_id": "Main Street Station", "name": "Main Street Station", "degree": 2, "centrality": 201.0, "radius": 7.15}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.40231899999999, 43.7255345]}, "properties": {"stop_id": "Lawrence Station", "name": "Lawrence Station", "degree": 2, "centrality": 496.0, "radius": 8.84}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.46226708333333, 43.74928633333334]}, "properties": {"stop_id": "Sheppard West Station", "name": "Sheppard West Station", "degree": 2, "centrality": 384.0, "radius": 8.2}}, {"type": "Feature", "geometry": {"type": "Point", "coordinates": [-79.53549133333333, 43.637743916666665]}, "properties": {"stop_id": "Kipling Station", "name": "Kipling Station", "degree": 1, "centrality": 0.0, "radius": 6.0}}]};
+    const edgeData = {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.26365493333333, 43.7322656], [-79.279749625, 43.7107545]]}, "properties": {"source": "Kennedy Station", "target": "Warden Station", "weight": 224.165}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.40428525, 43.6678415], [-79.3986618, 43.6684502]]}, "properties": {"source": "Spadina Station", "target": "St George Station", "weight": 77.334}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.40428525, 43.6678415], [-79.4068895, 43.674349]]}, "properties": {"source": "Spadina Station", "target": "Dupont Station", "weight": 68.906}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.40428525, 43.6678415], [-79.41130749999999, 43.66604775]]}, "properties": {"source": "Spadina Station", "target": "Bathurst Station", "weight": 82.904}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.47577820000001, 43.6518282], [-79.48372016666667, 43.649984499999995]]}, "properties": {"source": "Runnymede Station", "target": "Jane Station", "weight": 67.652}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.47577820000001, 43.6518282], [-79.46698075, 43.6538605]]}, "properties": {"source": "Runnymede Station", "target": "High Park Station", "weight": 81.975}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.523454, 43.783359], [-79.50928483333333, 43.77684275000001]]}, "properties": {"source": "Highway 407 Station", "target": "Pioneer Village Station", "weight": 122.813}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.523454, 43.783359], [-79.527906, 43.794021]]}, "properties": {"source": "Highway 407 Station", "target": "Vaughan Metropolitan Centre Station", "weight": 158.725}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.42667633333333, 43.6622825], [-79.43478999999999, 43.660699]]}, "properties": {"source": "Ossington Station", "target": "Dufferin Station", "weight": 62.95}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.42667633333333, 43.6622825], [-79.41828233333332, 43.66424066666667]]}, "properties": {"source": "Ossington Station", "target": "Christie Station", "weight": 98.541}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.39268185714286, 43.68784471428571], [-79.3970155, 43.69768125]]}, "properties": {"source": "St Clair Station", "target": "Davisville Station", "weight": 131.474}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.39268185714286, 43.68784471428571], [-79.39098899999999, 43.682699]]}, "properties": {"source": "St Clair Station", "target": "Summerhill Station", "weight": 80.437}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.38668799999999, 43.651099], [-79.384788, 43.647649]]}, "properties": {"source": "Osgoode Station", "target": "St Andrew Station", "weight": 73.93}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.38668799999999, 43.651099], [-79.38818800000001, 43.654649]]}, "properties": {"source": "Osgoode Station", "target": "St Patrick Station", "weight": 73.545}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.41828233333332, 43.66424066666667], [-79.41130749999999, 43.66604775]]}, "properties": {"source": "Christie Station", "target": "Bathurst Station", "weight": 85.592}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.390939, 43.669999000000004], [-79.3986618, 43.6684502]]}, "properties": {"source": "Bay Station", "target": "St George Station", "weight": 109.639}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.390939, 43.669999000000004], [-79.3863725, 43.671023]]}, "properties": {"source": "Bay Station", "target": "Yonge Station", "weight": 64.106}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.4361587, 43.699512], [-79.41548766666666, 43.684406833333334]]}, "properties": {"source": "Cedarvale Station", "target": "St Clair West Station", "weight": 260.786}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.4361587, 43.699512], [-79.44088675, 43.7090645]]}, "properties": {"source": "Cedarvale Station", "target": "Glencairn Station", "weight": 102.915}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.3856535, 43.6705465], [-79.38851766666666, 43.67671266666667]]}, "properties": {"source": "Bloor Station", "target": "Rosedale Station", "weight": 92.619}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.3856535, 43.6705465], [-79.38370549999999, 43.6654405]]}, "properties": {"source": "Bloor Station", "target": "Wellesley Station", "weight": 84.781}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.3856535, 43.6705465], [-79.3863725, 43.671023]]}, "properties": {"source": "Bloor Station", "target": "Yonge Station", "weight": 90.0}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.3863725, 43.671023], [-79.3761675, 43.6721385]]}, "properties": {"source": "Yonge Station", "target": "Sherbourne Station", "weight": 142.055}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.34611415384614, 43.77581184615384], [-79.36679725, 43.770880500000004]]}, "properties": {"source": "Don Mills Station", "target": "Leslie Station", "weight": 141.971}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.31274375, 43.686474000000004], [-79.3229386, 43.6841964]]}, "properties": {"source": "Woodbine Station", "target": "Coxwell Station", "weight": 90.767}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.31274375, 43.686474000000004], [-79.301559125, 43.689074875]]}, "properties": {"source": "Woodbine Station", "target": "Main Street Station", "weight": 85.964}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.3761675, 43.6721385], [-79.369062, 43.673600199999996]]}, "properties": {"source": "Sherbourne Station", "target": "Castle Frank Station", "weight": 70.877}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.38818800000001, 43.654649], [-79.390489, 43.659899]]}, "properties": {"source": "St Patrick Station", "target": "Queen's Park Station", "weight": 89.016}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.40620190909091, 43.744977909090906], [-79.41145111111112, 43.76152177777778]]}, "properties": {"source": "York Mills Station", "target": "Sheppard-Yonge Station", "weight": 196.365}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.40620190909091, 43.744977909090906], [-79.40231899999999, 43.7255345]]}, "properties": {"source": "York Mills Station", "target": "Lawrence Station", "weight": 168.956}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.37788800000001, 43.649049], [-79.379388, 43.652749]]}, "properties": {"source": "King Station", "target": "Queen Station", "weight": 75.032}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.37788800000001, 43.649049], [-79.38012866666666, 43.64568333333333]]}, "properties": {"source": "King Station", "target": "Union Station", "weight": 89.391}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.38288800000001, 43.660799], [-79.38370549999999, 43.6654405]]}, "properties": {"source": "College Station", "target": "Wellesley Station", "weight": 77.856}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.38288800000001, 43.660799], [-79.380988, 43.656549]]}, "properties": {"source": "College Station", "target": "TMU Station", "weight": 72.731}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.39888127272728, 43.705482454545454], [-79.40231899999999, 43.7255345]]}, "properties": {"source": "Eglinton Station", "target": "Lawrence Station", "weight": 194.358}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.39888127272728, 43.705482454545454], [-79.3970155, 43.69768125]]}, "properties": {"source": "Eglinton Station", "target": "Davisville Station", "weight": 105.853}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.5105384, 43.6483232], [-79.524379, 43.6450752]]}, "properties": {"source": "Royal York Station", "target": "Islington Station", "weight": 124.533}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.5105384, 43.6483232], [-79.49459525, 43.64999075]]}, "properties": {"source": "Royal York Station", "target": "Old Mill Station", "weight": 132.003}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.49459525, 43.64999075], [-79.48372016666667, 43.649984499999995]]}, "properties": {"source": "Old Mill Station", "target": "Jane Station", "weight": 90.967}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.390489, 43.659899], [-79.393189, 43.666599]]}, "properties": {"source": "Queen's Park Station", "target": "Museum Station", "weight": 113.253}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.36679725, 43.770880500000004], [-79.3763285, 43.769249]]}, "properties": {"source": "Leslie Station", "target": "Bessarion Station", "weight": 90.051}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.38012866666666, 43.64568333333333], [-79.384788, 43.647649]]}, "properties": {"source": "Union Station", "target": "St Andrew Station", "weight": 86.606}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.412542, 43.767947], [-79.41497208333332, 43.780787333333336]]}, "properties": {"source": "North York Centre Station", "target": "Finch Station", "weight": 178.493}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.412542, 43.767947], [-79.41145111111112, 43.76152177777778]]}, "properties": {"source": "North York Centre Station", "target": "Sheppard-Yonge Station", "weight": 78.715}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.44749200000001, 43.724598], [-79.44410388888889, 43.71562733333334]]}, "properties": {"source": "Yorkdale Station", "target": "Lawrence West Station", "weight": 116.439}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.44749200000001, 43.724598], [-79.4508073125, 43.7346363125]]}, "properties": {"source": "Yorkdale Station", "target": "Wilson Station", "weight": 121.933}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.442467, 43.65928], [-79.4528865, 43.656992333333335]]}, "properties": {"source": "Lansdowne Station", "target": "Dundas West Station", "weight": 112.856}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.442467, 43.65928], [-79.43478999999999, 43.660699]]}, "properties": {"source": "Lansdowne Station", "target": "Dufferin Station", "weight": 62.786}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.50928483333333, 43.77684275000001], [-79.499888, 43.774097]]}, "properties": {"source": "Pioneer Village Station", "target": "York University", "weight": 116.103}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.39098899999999, 43.682699], [-79.38851766666666, 43.67671266666667]]}, "properties": {"source": "Summerhill Station", "target": "Rosedale Station", "weight": 90.775}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.478693, 43.753311], [-79.46226708333333, 43.74928633333334]]}, "properties": {"source": "Downsview Park Station", "target": "Sheppard West Station", "weight": 149.691}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.478693, 43.753311], [-79.490905875, 43.764541125]]}, "properties": {"source": "Downsview Park Station", "target": "Finch West Station", "weight": 165.472}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.524379, 43.6450752], [-79.53549133333333, 43.637743916666665]]}, "properties": {"source": "Islington Station", "target": "Kipling Station", "weight": 156.08}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.33809725, 43.680998], [-79.344937, 43.679799]]}, "properties": {"source": "Donlands Station", "target": "Pape Station", "weight": 78.398}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.33809725, 43.680998], [-79.330676, 43.682650333333335]]}, "properties": {"source": "Donlands Station", "target": "Greenwood Station", "weight": 60.192}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.4508073125, 43.7346363125], [-79.46226708333333, 43.74928633333334]]}, "properties": {"source": "Wilson Station", "target": "Sheppard West Station", "weight": 199.527}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.379388, 43.652749], [-79.380988, 43.656549]]}, "properties": {"source": "Queen Station", "target": "TMU Station", "weight": 77.971}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.41145111111112, 43.76152177777778], [-79.3867165, 43.7669115]]}, "properties": {"source": "Sheppard-Yonge Station", "target": "Bayview Station", "weight": 171.925}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.499888, 43.774097], [-79.490905875, 43.764541125]]}, "properties": {"source": "York University", "target": "Finch West Station", "weight": 134.253}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.45966116666666, 43.65550433333333], [-79.46698075, 43.6538605]]}, "properties": {"source": "Keele Station", "target": "High Park Station", "weight": 85.095}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.45966116666666, 43.65550433333333], [-79.4528865, 43.656992333333335]]}, "properties": {"source": "Keele Station", "target": "Dundas West Station", "weight": 90.447}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.330676, 43.682650333333335], [-79.3229386, 43.6841964]]}, "properties": {"source": "Greenwood Station", "target": "Coxwell Station", "weight": 75.256}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.4068895, 43.674349], [-79.41548766666666, 43.684406833333334]]}, "properties": {"source": "Dupont Station", "target": "St Clair West Station", "weight": 190.755}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.369062, 43.673600199999996], [-79.3584225, 43.67686325]]}, "properties": {"source": "Castle Frank Station", "target": "Broadview Station", "weight": 82.746}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.44410388888889, 43.71562733333334], [-79.44088675, 43.7090645]]}, "properties": {"source": "Lawrence West Station", "target": "Glencairn Station", "weight": 86.385}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.3986618, 43.6684502], [-79.393189, 43.666599]]}, "properties": {"source": "St George Station", "target": "Museum Station", "weight": 86.39}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.3584225, 43.67686325], [-79.3525195, 43.678296]]}, "properties": {"source": "Broadview Station", "target": "Chester Station", "weight": 60.667}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.3763285, 43.769249], [-79.3867165, 43.7669115]]}, "properties": {"source": "Bessarion Station", "target": "Bayview Station", "weight": 100.067}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.3525195, 43.678296], [-79.344937, 43.679799]]}, "properties": {"source": "Chester Station", "target": "Pape Station", "weight": 88.673}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.28870928571428, 43.69444714285714], [-79.301559125, 43.689074875]]}, "properties": {"source": "Victoria Park Station", "target": "Main Street Station", "weight": 106.758}}, {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.28870928571428, 43.69444714285714], [-79.279749625, 43.7107545]]}, "properties": {"source": "Victoria Park Station", "target": "Warden Station", "weight": 190.828}}]};
+    const recommendationData = {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[-79.390939, 43.669999000000004], [-79.38851766666666, 43.67671266666667]]}, "properties": {"source": "Bay Station", "target": "Rosedale Station", "weight": 107.718, "improvement_percent": 1.576}}]};
+
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: 'https://tiles.openfreemap.org/styles/bright',
+      center: [-79.408405, 43.694551],
+      zoom: 11.2,
+      pitch: 58,
+      bearing: -18,
+      hash: false,
+      canvasContextAttributes: { antialias: true }
+    });
+
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+    function firstLabelLayerId() {
+      const layers = map.getStyle().layers || [];
+      for (const layer of layers) {
+        if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
+          return layer.id;
+        }
+      }
+      return undefined;
+    }
+
+    function showPopup(lngLat, html) {
+      new maplibregl.Popup({ closeButton: true, closeOnClick: true })
+        .setLngLat(lngLat)
+        .setHTML(html)
+        .addTo(map);
+    }
+
+    function setBuildingsVisibility(isVisible) {
+      if (!map.getLayer('3d-buildings')) {
+        return;
+      }
+
+      map.setLayoutProperty(
+        '3d-buildings',
+        'visibility',
+        isVisible ? 'visible' : 'none'
+      );
+    }
+
+    map.on('load', () => {
+      map.addSource('ttc-stations', {
+        type: 'geojson',
+        data: stationData
+      });
+
+      map.addSource('ttc-edges', {
+        type: 'geojson',
+        data: edgeData
+      });
+
+      map.addSource('ttc-recommendation', {
+        type: 'geojson',
+        data: recommendationData
+      });
+
+      map.addSource('openfreemap', {
+        type: 'vector',
+        url: 'https://tiles.openfreemap.org/planet'
+      });
+
+      const labelLayerId = firstLabelLayerId();
+
+      map.addLayer({
+        id: 'ttc-edges-layer',
+        type: 'line',
+        source: 'ttc-edges',
+        paint: {
+          'line-color': '#94a3b8',
+          'line-opacity': 0.72,
+          'line-width': 2
+        }
+      }, labelLayerId);
+
+      map.addLayer({
+        id: 'ttc-recommendation-layer',
+        type: 'line',
+        source: 'ttc-recommendation',
+        paint: {
+          'line-color': '#ef4444',
+          'line-opacity': 0.95,
+          'line-width': 4
+        }
+      }, labelLayerId);
+
+      map.addLayer({
+        id: 'ttc-stations-layer',
+        type: 'circle',
+        source: 'ttc-stations',
+        paint: {
+          'circle-color': '#38bdf8',
+          'circle-stroke-color': '#f8fafc',
+          'circle-stroke-width': 1.2,
+          'circle-opacity': 0.95,
+          'circle-radius': ['get', 'radius']
+        }
+      }, labelLayerId);
+
+      map.addLayer({
+        id: 'ttc-station-labels',
+        type: 'symbol',
+        source: 'ttc-stations',
+        minzoom: 11.5,
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-size': 11,
+          'text-offset': [0, 1.2]
+        },
+        paint: {
+          'text-color': '#f8fafc',
+          'text-halo-color': 'rgba(15, 23, 42, 0.95)',
+          'text-halo-width': 1.2
+        }
+      });
+
+      map.addLayer({
+        id: '3d-buildings',
+        source: 'openfreemap',
+        'source-layer': 'building',
+        type: 'fill-extrusion',
+        minzoom: 14,
+        filter: ['!=', ['get', 'hide_3d'], true],
+        paint: {
+          'fill-extrusion-color': [
+            'interpolate',
+            ['linear'],
+            ['get', 'render_height'],
+            0, '#cbd5e1',
+            80, '#94a3b8',
+            200, '#64748b'
+          ],
+          'fill-extrusion-height': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            14,
+            0,
+            15.5,
+            ['get', 'render_height']
+          ],
+          'fill-extrusion-base': [
+            'case',
+            ['>=', ['zoom'], 15.5],
+            ['get', 'render_min_height'],
+            0
+          ],
+          'fill-extrusion-opacity': 0.72
+        }
+      }, labelLayerId);
+
+      const buildingsToggle = document.getElementById('buildings-toggle');
+      if (buildingsToggle instanceof HTMLInputElement) {
+        setBuildingsVisibility(buildingsToggle.checked);
+        buildingsToggle.addEventListener('change', () => {
+          setBuildingsVisibility(buildingsToggle.checked);
+        });
+      }
+
+      const bounds = new maplibregl.LngLatBounds();
+      for (const feature of stationData.features) {
+        bounds.extend(feature.geometry.coordinates);
+      }
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, {
+          padding: { top: 90, right: 60, bottom: 60, left: 360 },
+          duration: 0
+        });
+      }
+
+      map.on('click', 'ttc-stations-layer', (event) => {
+        const feature = event.features && event.features[0];
+        if (!feature) {
+          return;
+        }
+
+        const props = feature.properties;
+        showPopup(
+          event.lngLat,
+          `<strong>${props.name}</strong><br>` +
+          `Degree: ${props.degree}<br>` +
+          `Centrality: ${Number(props.centrality).toFixed(3)}`
+        );
+      });
+
+      map.on('click', 'ttc-recommendation-layer', (event) => {
+        const feature = event.features && event.features[0];
+        if (!feature) {
+          return;
+        }
+
+        const props = feature.properties;
+        showPopup(
+          event.lngLat,
+          `<strong>Suggested connection</strong><br>` +
+          `${props.source} ↔ ${props.target}<br>` +
+          `Estimated travel time: ${Number(props.weight).toFixed(1)} seconds<br>` +
+          `Efficiency improvement: ${Number(props.improvement_percent).toFixed(2)}%`
+        );
+      });
+
+      for (const layerId of ['ttc-stations-layer', 'ttc-recommendation-layer']) {
+        map.on('mouseenter', layerId, () => {
+          map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', layerId, () => {
+          map.getCanvas().style.cursor = '';
+        });
+      }
+    });
+  </script>
+</body>
+</html>

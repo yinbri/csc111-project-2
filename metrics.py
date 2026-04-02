@@ -156,6 +156,23 @@ def reconstruct_path(previous: dict[str, str | None], source: str, target: str) 
     return path
 
 
+def shortest_path_between(graph: Graph, source: str, target: str) -> tuple[list[str], float]:
+    """Return one shortest path and its total distance from ``source`` to ``target``.
+
+    If ``target`` is unreachable from ``source``, return ``([], math.inf)``.
+
+    Preconditions:
+        - source in graph.adjacency
+        - target in graph.adjacency
+    """
+    results = dijkstra(graph, source)
+    distance = results.distances.get(target, math.inf)
+    if math.isinf(distance):
+        return ([], math.inf)
+
+    return (reconstruct_path(results.previous, source, target), distance)
+
+
 def all_pairs_shortest_paths(graph: Graph) -> dict[str, PathResults]:
     """
     Run Dijkstra from every node in the graph.
@@ -349,6 +366,9 @@ def estimate_candidate_edge_weight(graph: Graph, source: str, target: str) -> fl
 def find_best_new_connection(
     graph: Graph,
     max_distance_km: float | None = None,
+    min_distance_km: float = 0.0,
+    min_existing_path_seconds: float = 0.0,
+    exclude_same_route: bool = False,
     baseline_efficiency: float | None = None,
     candidate_nodes: list[str] | None = None,
 ) -> EdgeRecommendation | None:
@@ -366,14 +386,22 @@ def find_best_new_connection(
 
     best_recommendation: EdgeRecommendation | None = None
     nodes = candidate_nodes[:] if candidate_nodes is not None else graph.nodes()
+    path_cache: dict[str, PathResults] = {}
 
     for index, source in enumerate(nodes):
         source_station = graph.stations.get(source)
         if source_station is None:
             continue
 
+        if min_existing_path_seconds > 0:
+            path_cache[source] = dijkstra(graph, source)
+
         for target in nodes[index + 1:]:
             if graph.has_edge(source, target):
+                continue
+            if exclude_same_route and graph.route_ids_for(source) & graph.route_ids_for(target):
+                continue
+            if graph.complex_id_for(source) == graph.complex_id_for(target):
                 continue
 
             target_station = graph.stations.get(target)
@@ -386,8 +414,14 @@ def find_best_new_connection(
                 target_station.latitude,
                 target_station.longitude,
             )
+            if distance_km < min_distance_km:
+                continue
             if max_distance_km is not None and distance_km > max_distance_km:
                 continue
+            if min_existing_path_seconds > 0:
+                existing_distance = path_cache[source].distances.get(target, math.inf)
+                if not math.isinf(existing_distance) and existing_distance < min_existing_path_seconds:
+                    continue
 
             candidate_weight = estimate_candidate_edge_weight(graph, source, target)
             trial_graph = graph.copy()

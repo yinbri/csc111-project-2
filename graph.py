@@ -41,9 +41,13 @@ class Graph:
     Instance Attributes:
         - adjacency: A dictionary mapping node IDs to their neighbors and edge weights.
         - stations: A dictionary mapping node IDs to their corresponding Station objects.
+        - station_route_ids: The GTFS route IDs observed at each station.
+        - station_complex_ids: A dictionary mapping node IDs to interchange-complex IDs.
     """
     adjacency: dict[str, dict[str, float]] = field(default_factory=dict)
     stations: dict[str, Station] = field(default_factory=dict)
+    station_route_ids: dict[str, set[str]] = field(default_factory=dict)
+    station_complex_ids: dict[str, str] = field(default_factory=dict)
 
 
     def add_station(self, station: Station) -> None:
@@ -54,6 +58,8 @@ class Graph:
         """
         self.stations[station.stop_id] = station
         self.adjacency.setdefault(station.stop_id, {})
+        self.station_route_ids.setdefault(station.stop_id, set())
+        self.station_complex_ids.setdefault(station.stop_id, station.stop_id)
 
 
     def add_node(self, node: str) -> None:
@@ -63,6 +69,29 @@ class Graph:
             - node is not None and node != ""
         """
         self.adjacency.setdefault(node, {})
+        self.station_route_ids.setdefault(node, set())
+        self.station_complex_ids.setdefault(node, node)
+
+    def add_route_id(self, node: str, route_id: str) -> None:
+        """Record an observed GTFS route ID for ``node``."""
+        if route_id == "":
+            return
+
+        self.add_node(node)
+        self.station_route_ids.setdefault(node, set()).add(route_id)
+
+    def route_ids_for(self, node: str) -> set[str]:
+        """Return the observed GTFS route IDs for ``node``."""
+        return set(self.station_route_ids.get(node, set()))
+
+    def set_complex_id(self, node: str, complex_id: str) -> None:
+        """Assign ``node`` to an interchange complex."""
+        self.add_node(node)
+        self.station_complex_ids[node] = complex_id
+
+    def complex_id_for(self, node: str) -> str:
+        """Return the interchange-complex ID for ``node``."""
+        return self.station_complex_ids.get(node, node)
 
 
     def add_edge(self, source: str, target: str, weight: float, *, bidirectional: bool = True) -> None:
@@ -157,6 +186,8 @@ class Graph:
         return Graph(
             adjacency={node: dict(neighbors) for node, neighbors in self.adjacency.items()},
             stations=dict(self.stations),
+            station_route_ids={node: set(route_ids) for node, route_ids in self.station_route_ids.items()},
+            station_complex_ids=dict(self.station_complex_ids),
         )
 
 

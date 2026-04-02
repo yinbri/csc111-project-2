@@ -15,6 +15,7 @@ This file is Copyright (c) 2026 Aarav Chhabra, Brian Yin, Sam Wang, and Kevin Li
 from __future__ import annotations
 
 import csv
+import math
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -210,6 +211,28 @@ def load_trip_ids_for_routes(trips_path: str | Path, route_ids: set[str]) -> set
     return trip_ids
 
 
+def load_trip_route_ids(
+    trips_path: str | Path,
+    allowed_route_ids: set[str] | None = None,
+) -> dict[str, str]:
+    """Return a mapping from trip ID to the GTFS route ID for that trip."""
+    trip_route_ids = {}
+
+    with Path(trips_path).open(newline="", encoding="utf-8") as csv_file:
+        reader = csv.DictReader(csv_file)
+        for row in reader:
+            route_id = row.get("route_id", "").strip()
+            trip_id = row.get("trip_id", "").strip()
+            if not route_id or not trip_id:
+                continue
+            if allowed_route_ids is not None and route_id not in allowed_route_ids:
+                continue
+
+            trip_route_ids[trip_id] = route_id
+
+    return trip_route_ids
+
+
 _STATION_SUFFIX_PATTERNS = (
     re.compile(r"\s*-\s*(?:Eastbound|Westbound|Northbound|Southbound) Platform(?: Towards .+)?$"),
     re.compile(r"\s*-\s*Subway Platform$"),
@@ -219,6 +242,8 @@ _STATION_SUFFIX_PATTERNS = (
     re.compile(r"\s+Subway Platform$"),
     re.compile(r"\s+LRT Platform$"),
 )
+INTERCHANGE_DISTANCE_THRESHOLD_KM = 0.12
+INTERCHANGE_TRANSFER_SECONDS = 90.0
 
 
 def normalize_station_name(stop_name: str) -> str:
@@ -323,6 +348,65 @@ def _travel_time_between(current_stop: StopTimeRecord, next_stop: StopTimeRecord
     return max(1, next_departure - current_departure)
 
 
+def _distance_km_between(station_a: Station, station_b: Station) -> float:
+    """Return the haversine distance between two stations in kilometers."""
+    earth_radius_km = 6371.0
+    lat1_rad = math.radians(station_a.latitude)
+    lon1_rad = math.radians(station_a.longitude)
+    lat2_rad = math.radians(station_b.latitude)
+    lon2_rad = math.radians(station_b.longitude)
+    delta_lat = lat2_rad - lat1_rad
+    delta_lon = lon2_rad - lon1_rad
+
+    a_value = (
+        math.sin(delta_lat / 2) ** 2
+        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
+    )
+    c_value = 2 * math.atan2(math.sqrt(a_value), math.sqrt(1 - a_value))
+    return earth_radius_km * c_value
+
+
+def _identify_station_complexes(graph: Graph) -> list[set[str]]:
+    """Return interchange complexes built from shared lines and close split stations."""
+    parent = {node_id: node_id for node_id in graph.nodes()}
+
+    def find(node_id: str) -> str:
+        while parent[node_id] != node_id:
+            parent[node_id] = parent[parent[node_id]]
+            node_id = parent[node_id]
+        return node_id
+
+    def union(first: str, second: str) -> None:
+        first_root = find(first)
+        second_root = find(second)
+        if first_root != second_root:
+            parent[second_root] = first_root
+
+    nodes = graph.nodes()
+    for node_id in nodes:
+        if len(graph.route_ids_for(node_id)) > 1:
+            union(node_id, node_id)
+
+    for index, first in enumerate(nodes):
+        first_routes = graph.route_ids_for(first)
+        first_station = graph.stations[first]
+        for second in nodes[index + 1:]:
+            second_routes = graph.route_ids_for(second)
+            if not first_routes or not second_routes or first_routes & second_routes:
+                continue
+
+            second_station = graph.stations[second]
+            distance_km = _distance_km_between(first_station, second_station)
+            if distance_km <= INTERCHANGE_DISTANCE_THRESHOLD_KM:
+                union(first, second)
+
+    groups = defaultdict(set)
+    for node_id in nodes:
+        groups[find(node_id)].add(node_id)
+
+    return [group for group in groups.values() if len(group) > 1 or len(graph.route_ids_for(next(iter(group)))) > 1]
+
+
 def build_graph_from_gtfs(
     stops_path: str | Path,
     stop_times_path: str | Path,
@@ -339,6 +423,7 @@ def build_graph_from_gtfs(
     station_map, stop_id_to_station_id = aggregate_stations_by_name(raw_stops)
 
     allowed_trip_ids: set[str] | None = None
+    trip_route_ids: dict[str, str] = {}
     if (
         routes_path is not None
         and trips_path is not None
@@ -348,13 +433,16 @@ def build_graph_from_gtfs(
     ):
         route_ids = load_route_ids_by_type(routes_path, route_types)
         allowed_trip_ids = load_trip_ids_for_routes(trips_path, route_ids)
+        trip_route_ids = load_trip_route_ids(trips_path, route_ids)
 
     trips = load_relevant_stop_times_by_trip(stop_times_path, allowed_trip_ids)
     edge_totals = defaultdict(float)
     edge_counts = defaultdict(int)
     used_station_ids = set()
+    station_route_ids = defaultdict(set)
 
-    for records in trips.values():
+    for trip_id, records in trips.items():
+        route_id = trip_route_ids.get(trip_id, "")
         for index in range(len(records) - 1):
             current_stop = records[index]
             next_stop = records[index + 1]
@@ -370,17 +458,33 @@ def build_graph_from_gtfs(
             edge_counts[edge_key] += 1
             used_station_ids.add(source)
             used_station_ids.add(target)
+            if route_id:
+                station_route_ids[source].add(route_id)
+                station_route_ids[target].add(route_id)
 
     graph = Graph()
     for station_id in used_station_ids:
         station = station_map.get(station_id)
         if station is not None:
             graph.add_station(station)
+            for route_id in station_route_ids.get(station_id, set()):
+                graph.add_route_id(station_id, route_id)
 
     for edge_key, total_weight in edge_totals.items():
         source, target = tuple(edge_key)
         average_weight = total_weight / edge_counts[edge_key]
         graph.add_edge(source, target, average_weight, bidirectional=True)
+
+    for complex_nodes in _identify_station_complexes(graph):
+        complex_id = "+".join(sorted(complex_nodes))
+        for node_id in complex_nodes:
+            graph.set_complex_id(node_id, complex_id)
+
+        complex_list = sorted(complex_nodes)
+        for index, source in enumerate(complex_list):
+            for target in complex_list[index + 1:]:
+                if not graph.has_edge(source, target):
+                    graph.add_edge(source, target, INTERCHANGE_TRANSFER_SECONDS, bidirectional=True)
 
     return graph
 
