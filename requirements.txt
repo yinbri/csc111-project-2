@@ -1,1 +1,11 @@
-plotly>=5.0
+# CSC111 Winter 2026: Python libraries.
+
+# Testing and code checking
+hypothesis
+pytest
+python-ta
+
+# Graphics and data visualization
+plotly
+pygame
+pillow
