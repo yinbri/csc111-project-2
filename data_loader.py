@@ -360,3 +360,14 @@ def build_graph_from_gtfs(
         graph.add_edge(source, target, average_weight, bidirectional=True)
 
     return graph
+
+
+if __name__ == "__main__":
+    import doctest
+    import python_ta
+    doctest.testmod()
+    python_ta.check_all(config={
+        'extra-imports': ['csv', 're', 'collections', 'dataclasses', 'pathlib', 'graph'],
+        'allowed-io': [],
+        'max-line-length': 120
+    })

@@ -160,3 +160,15 @@ def show_network_figure(
 ) -> None:
     """Display the interactive Plotly figure in a browser or notebook."""
     create_network_figure(graph, centrality, recommendation).show()
+
+
+if __name__ == "__main__":
+    import doctest
+    import python_ta
+
+    doctest.testmod()
+    python_ta.check_all(config={
+        'extra-imports': ['pathlib', 'plotly.graph_objects', 'graph', 'metrics'],
+        'allowed-io': [],
+        'max-line-length': 120
+    })

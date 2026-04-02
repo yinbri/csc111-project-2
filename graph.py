@@ -118,3 +118,14 @@ class Graph:
             adjacency={node: dict(neighbors) for node, neighbors in self.adjacency.items()},
             stations=dict(self.stations),
         )
+
+
+if __name__ == "__main__":
+    import doctest
+    import python_ta
+    doctest.testmod()
+    python_ta.check_all(config={
+        'extra-imports': ['dataclasses'],
+        'allowed-io': [],
+        'max-line-length': 120
+    })

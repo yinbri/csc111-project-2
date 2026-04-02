@@ -356,3 +356,14 @@ def find_best_new_connection(
 def top_k_central_stations(centrality: dict[str, float], k: int = 5) -> list[tuple[str, float]]:
     """Return the top ``k`` stations by centrality score."""
     return sorted(centrality.items(), key=lambda item: item[1], reverse=True)[:k]
+
+
+if __name__ == "__main__":
+    import doctest
+    import python_ta
+    doctest.testmod()
+    python_ta.check_all(config={
+        'extra-imports': ['heapq', 'math', 'dataclasses', 'graph'],
+        'allowed-io': [],
+        'max-line-length': 120
+    })
