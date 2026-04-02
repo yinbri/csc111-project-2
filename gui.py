@@ -20,7 +20,6 @@ import tkinter as tk
 import webbrowser
 from pathlib import Path
 from tkinter import messagebox, ttk
-
 from data_loader import build_graph_from_gtfs
 from graph import Graph
 from metrics import (
@@ -47,7 +46,9 @@ RECOMMENDATION_COLOR = "#e11d48"
 BACKGROUND_COLOR = "#f7f9fc"
 MAX_NODE_LABELS = 18
 
-# This file was planned and structured by our team, and parts of the implementation were written with the help of GitHub Copilot.
+# PLEASE NOTE:
+# This file was planned and structured by our team, and parts of the implementation were written with the help of
+# GitHub Copilot.
 
 
 def format_station_label(graph: Graph, node_id: str) -> str:

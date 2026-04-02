@@ -2,7 +2,7 @@
 
 Module Description
 ==================
-This module defines the core graph data structures for representing the Toronto TTC network. It includes 
+This module defines the core graph data structures for representing the Toronto TTC network. It includes
 classes for stations and the weighted graph used for network analysis and optimization.
 
 Copyright and Usage Information
@@ -49,7 +49,6 @@ class Graph:
     station_route_ids: dict[str, set[str]] = field(default_factory=dict)
     station_complex_ids: dict[str, str] = field(default_factory=dict)
 
-
     def add_station(self, station: Station) -> None:
         """Add a station node and its metadata to the graph.
 
@@ -60,7 +59,6 @@ class Graph:
         self.adjacency.setdefault(station.stop_id, {})
         self.station_route_ids.setdefault(station.stop_id, set())
         self.station_complex_ids.setdefault(station.stop_id, station.stop_id)
-
 
     def add_node(self, node: str) -> None:
         """Add a node to the graph if it does not already exist.
@@ -93,7 +91,6 @@ class Graph:
         """Return the interchange-complex ID for ``node``."""
         return self.station_complex_ids.get(node, node)
 
-
     def add_edge(self, source: str, target: str, weight: float, *, bidirectional: bool = True) -> None:
         """Add a weighted edge to the graph.
 
@@ -113,7 +110,6 @@ class Graph:
 
         if bidirectional:
             self.adjacency[target][source] = weight
-
 
     def remove_edge(self, source: str, target: str, *, bidirectional: bool = True) -> None:
         """Remove an edge from the graph if it exists.
@@ -194,6 +190,7 @@ class Graph:
 if __name__ == "__main__":
     import doctest
     import python_ta
+
     doctest.testmod()
     python_ta.check_all(config={
         'extra-imports': ['dataclasses'],

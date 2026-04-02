@@ -13,7 +13,6 @@ This file is Copyright (c) 2026 Aarav Chhabra, Brian Yin, Sam Wang, and Kevin Li
 """
 
 from __future__ import annotations
-
 from pathlib import Path
 from gui import launch_app
 

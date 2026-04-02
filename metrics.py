@@ -2,7 +2,7 @@
 
 Module Description
 ==================
-This module implements graph algorithms and computes network metrics for the Toronto TTC project. 
+This module implements graph algorithms and computes network metrics for the Toronto TTC project.
 It provides functions for centrality, shortest paths, and recommendations for improving the transit network.
 
 Copyright and Usage Information
@@ -38,6 +38,7 @@ class PathResults:
     path_counts: dict[str, float]
     visit_order: list[str]
 
+
 @dataclass(slots=True)
 class NetworkMetrics:
     """Bundle the main graph metrics reported by the program.
@@ -53,6 +54,7 @@ class NetworkMetrics:
     diameter: float
     global_efficiency: float
     betweenness_centrality: dict[str, float]
+
 
 @dataclass(slots=True)
 class EdgeRecommendation:
@@ -275,8 +277,8 @@ def betweenness_centrality(graph: Graph, all_pairs: dict[str, PathResults] | Non
                 if result.path_counts[node] == 0:
                     continue
                 contribution = (
-                    result.path_counts[predecessor] / result.path_counts[node]
-                ) * (1.0 + dependency[node])
+                                       result.path_counts[predecessor] / result.path_counts[node]
+                               ) * (1.0 + dependency[node])
                 dependency[predecessor] += contribution
 
             if node != source:
@@ -322,8 +324,8 @@ def geographic_distance_hint(lat1: float, lon1: float, lat2: float, lon2: float)
     delta_lat = lat2_rad - lat1_rad
     delta_lon = lon2_rad - lon1_rad
     a_value = (
-        math.sin(delta_lat / 2) ** 2
-        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
+            math.sin(delta_lat / 2) ** 2
+            + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
     )
     c_value = 2 * math.atan2(math.sqrt(a_value), math.sqrt(1 - a_value))
     return earth_radius_km * c_value
@@ -385,13 +387,13 @@ def estimate_candidate_edge_weight(graph: Graph, source: str, target: str) -> fl
 
 
 def find_best_new_connection(
-    graph: Graph,
-    max_distance_km: float | None = None,
-    min_distance_km: float = 0.0,
-    min_existing_path_seconds: float = 0.0,
-    exclude_same_route: bool = False,
-    baseline_efficiency: float | None = None,
-    candidate_nodes: list[str] | None = None,
+        graph: Graph,
+        max_distance_km: float | None = None,
+        min_distance_km: float = 0.0,
+        min_existing_path_seconds: float = 0.0,
+        exclude_same_route: bool = False,
+        baseline_efficiency: float | None = None,
+        candidate_nodes: list[str] | None = None,
 ) -> EdgeRecommendation | None:
     """Return the best edge for improving global efficiency.
 
@@ -412,14 +414,14 @@ def find_best_new_connection(
 
 
 def find_best_new_connections(
-    graph: Graph,
-    max_distance_km: float | None = None,
-    min_distance_km: float = 0.0,
-    min_existing_path_seconds: float = 0.0,
-    exclude_same_route: bool = False,
-    baseline_metrics: NetworkMetrics | None = None,
-    candidate_nodes: list[str] | None = None,
-    baseline_efficiency: float | None = None,
+        graph: Graph,
+        max_distance_km: float | None = None,
+        min_distance_km: float = 0.0,
+        min_existing_path_seconds: float = 0.0,
+        exclude_same_route: bool = False,
+        baseline_metrics: NetworkMetrics | None = None,
+        candidate_nodes: list[str] | None = None,
+        baseline_efficiency: float | None = None,
 ) -> EdgeRecommendationSet:
     """Brute-force search for the best edge to add for each supported metric.
 
@@ -531,6 +533,7 @@ def top_k_central_stations(centrality: dict[str, float], k: int = 5) -> list[tup
 if __name__ == "__main__":
     import doctest
     import python_ta
+
     doctest.testmod()
     python_ta.check_all(config={
         'extra-imports': ['heapq', 'math', 'dataclasses', 'graph'],

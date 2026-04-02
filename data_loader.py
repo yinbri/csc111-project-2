@@ -2,8 +2,8 @@
 
 Module Description
 ==================
-This module provides utilities for loading Toronto Transit Commission (TTC) GTFS data files and building the graph 
-representation used throughout the project. It includes data classes and functions for parsing GTFS files and 
+This module provides utilities for loading Toronto Transit Commission (TTC) GTFS data files and building the graph
+representation used throughout the project. It includes data classes and functions for parsing GTFS files and
 constructing the network graph.
 
 Copyright and Usage Information
@@ -13,7 +13,6 @@ This file is Copyright (c) 2026 Aarav Chhabra, Brian Yin, Sam Wang, and Kevin Li
 """
 
 from __future__ import annotations
-
 import csv
 import math
 import re
@@ -21,7 +20,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from graph import Graph, Station
-
 
 
 @dataclass(slots=True, frozen=True)
@@ -43,7 +41,6 @@ class StopTimeRecord:
     stop_sequence: int
 
 
-
 @dataclass(slots=True, frozen=True)
 class RouteRecord:
     """Represent a single row from routes.txt.
@@ -59,7 +56,6 @@ class RouteRecord:
     route_short_name: str
     route_long_name: str
     route_type: str
-
 
 
 @dataclass(slots=True, frozen=True)
@@ -212,8 +208,8 @@ def load_trip_ids_for_routes(trips_path: str | Path, route_ids: set[str]) -> set
 
 
 def load_trip_route_ids(
-    trips_path: str | Path,
-    allowed_route_ids: set[str] | None = None,
+        trips_path: str | Path,
+        allowed_route_ids: set[str] | None = None,
 ) -> dict[str, str]:
     """Return a mapping from trip ID to the GTFS route ID for that trip."""
     trip_route_ids = {}
@@ -231,6 +227,7 @@ def load_trip_route_ids(
             trip_route_ids[trip_id] = route_id
 
     return trip_route_ids
+
 
 # The Suffix Patterns and Station Normalizion were done with the help of Github Copilot
 # This section removes platform wording from stop names so stops at the same
@@ -270,8 +267,8 @@ def group_stop_times_by_trip(stop_times: list[StopTimeRecord]) -> dict[str, list
 
 
 def load_relevant_stop_times_by_trip(
-    stop_times_path: str | Path,
-    allowed_trip_ids: set[str] | None = None,
+        stop_times_path: str | Path,
+        allowed_trip_ids: set[str] | None = None,
 ) -> dict[str, list[StopTimeRecord]]:
     """Load and group relevant stop-times without materializing the whole file first."""
     grouped = defaultdict(list)
@@ -361,11 +358,12 @@ def _distance_km_between(station_a: Station, station_b: Station) -> float:
     delta_lon = lon2_rad - lon1_rad
 
     a_value = (
-        math.sin(delta_lat / 2) ** 2
-        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
+            math.sin(delta_lat / 2) ** 2
+            + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2) ** 2
     )
     c_value = 2 * math.atan2(math.sqrt(a_value), math.sqrt(1 - a_value))
     return earth_radius_km * c_value
+
 
 # The identify_station_complexes function was done with the help of Github Copilot
 # This function groups together stations that should count as one interchange,
@@ -412,11 +410,11 @@ def _identify_station_complexes(graph: Graph) -> list[set[str]]:
 
 
 def build_graph_from_gtfs(
-    stops_path: str | Path,
-    stop_times_path: str | Path,
-    routes_path: str | Path | None = None,
-    trips_path: str | Path | None = None,
-    route_types: set[str] | None = None,
+        stops_path: str | Path,
+        stop_times_path: str | Path,
+        routes_path: str | Path | None = None,
+        trips_path: str | Path | None = None,
+        route_types: set[str] | None = None,
 ) -> Graph:
     """Build a station-level weighted graph from GTFS files.
 
@@ -429,11 +427,11 @@ def build_graph_from_gtfs(
     allowed_trip_ids: set[str] | None = None
     trip_route_ids: dict[str, str] = {}
     if (
-        routes_path is not None
-        and trips_path is not None
-        and Path(routes_path).exists()
-        and Path(trips_path).exists()
-        and route_types is not None
+            routes_path is not None
+            and trips_path is not None
+            and Path(routes_path).exists()
+            and Path(trips_path).exists()
+            and route_types is not None
     ):
         route_ids = load_route_ids_by_type(routes_path, route_types)
         allowed_trip_ids = load_trip_ids_for_routes(trips_path, route_ids)
@@ -496,6 +494,7 @@ def build_graph_from_gtfs(
 if __name__ == "__main__":
     import doctest
     import python_ta
+
     doctest.testmod()
     python_ta.check_all(config={
         'extra-imports': ['csv', 're', 'collections', 'dataclasses', 'pathlib', 'graph'],
