@@ -23,9 +23,19 @@ from pathlib import Path
 from graph import Graph, Station
 
 
+
 @dataclass(slots=True, frozen=True)
 class StopTimeRecord:
-    """Represent a single row from ``stop_times.txt``."""
+    """
+    Represent a single row from stop_times.txt.
+
+    Instance Attributes:
+        - trip_id: The trip ID for this stop time record.
+        - arrival_time: The scheduled arrival time at the stop.
+        - departure_time: The scheduled departure time from the stop.
+        - stop_id: The GTFS stop ID for this record.
+        - stop_sequence: The sequence number of the stop within the trip.
+    """
 
     trip_id: str
     arrival_time: str
@@ -34,9 +44,18 @@ class StopTimeRecord:
     stop_sequence: int
 
 
+
 @dataclass(slots=True, frozen=True)
 class RouteRecord:
-    """Represent a single row from ``routes.txt``."""
+    """
+    Represent a single row from routes.txt.
+
+    Instance Attributes:
+        - route_id: The unique route ID.
+        - route_short_name: The short name of the route.
+        - route_long_name: The long name of the route.
+        - route_type: The type of route (e.g., subway, bus).
+    """
 
     route_id: str
     route_short_name: str
@@ -44,9 +63,17 @@ class RouteRecord:
     route_type: str
 
 
+
 @dataclass(slots=True, frozen=True)
 class TripRecord:
-    """Represent a single row from ``trips.txt``."""
+    """
+    Represent a single row from trips.txt.
+
+    Instance Attributes:
+        - route_id: The route ID for this trip.
+        - service_id: The service ID for this trip.
+        - trip_id: The unique trip ID.
+    """
 
     route_id: str
     service_id: str

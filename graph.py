@@ -16,10 +16,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 
+
 @dataclass(slots=True, frozen=True)
 class Station:
-    """Represent a station-level node in the TTC network."""
+    """
+    A station-level node in the TTC network.
 
+    Instance Attributes:
+        - stop_id: The unique GTFS stop ID for this station.
+        - name: The name of the station.
+        - latitude: The latitude of the station.
+        - longitude: The longitude of the station.
+    """
     stop_id: str
     name: str
     latitude: float
@@ -28,29 +36,35 @@ class Station:
 
 @dataclass
 class Graph:
-    """Weighted graph implemented with adjacency dictionaries.
+    """
+    Weighted graph implemented with adjacency dictionaries.
 
     The project models a transit network, so this graph is undirected by
     default and edge weights represent travel time in seconds.
-    """
 
+    Instance Attributes:
+        - adjacency: A dictionary mapping node IDs to their neighbors and edge weights.
+        - stations: A dictionary mapping node IDs to their corresponding Station objects.
+    """
     adjacency: dict[str, dict[str, float]] = field(default_factory=dict)
     stations: dict[str, Station] = field(default_factory=dict)
+
 
     def add_station(self, station: Station) -> None:
         """Add a station node and its metadata to the graph."""
         self.stations[station.stop_id] = station
         self.adjacency.setdefault(station.stop_id, {})
 
+
     def add_node(self, node: str) -> None:
         """Add a node to the graph if it does not already exist."""
         self.adjacency.setdefault(node, {})
 
+
     def add_edge(self, source: str, target: str, weight: float, *, bidirectional: bool = True) -> None:
         """Add a weighted edge to the graph.
 
-        Raises:
-            ValueError: If the weight is negative or either endpoint is empty.
+        Raises a ValueError if the weight is negative or either endpoint is empty.
         """
         if not source or not target:
             raise ValueError("source and target must be non-empty node IDs")
@@ -63,6 +77,7 @@ class Graph:
 
         if bidirectional:
             self.adjacency[target][source] = weight
+
 
     def remove_edge(self, source: str, target: str, *, bidirectional: bool = True) -> None:
         """Remove an edge from the graph if it exists."""

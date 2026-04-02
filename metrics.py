@@ -20,9 +20,20 @@ from dataclasses import dataclass
 from graph import Graph
 
 
+
 @dataclass(slots=True)
 class PathResults:
-    """Store the result of running Dijkstra from one source node."""
+    """
+    Store the result of running Dijkstra from one source node.
+
+    Instance Attributes:
+        - source: The source node ID.
+        - distances: A mapping from node IDs to their shortest path distance from the source.
+        - previous: A mapping from node IDs to their predecessor on the shortest path.
+        - predecessors: A mapping from node IDs to a list of their predecessors on shortest paths.
+        - path_counts: A mapping from node IDs to the number of shortest paths from the source.
+        - visit_order: The order in which nodes were visited during Dijkstra's algorithm.
+    """
 
     source: str
     distances: dict[str, float]
@@ -32,9 +43,18 @@ class PathResults:
     visit_order: list[str]
 
 
+
 @dataclass(slots=True)
 class NetworkMetrics:
-    """Bundle the main graph metrics reported by the program."""
+    """
+    Bundle the main graph metrics reported by the program.
+
+    Instance Attributes:
+        - average_shortest_path: The average shortest path length in the network.
+        - diameter: The diameter (longest shortest path) of the network.
+        - global_efficiency: The global efficiency of the network.
+        - betweenness_centrality: A mapping from node IDs to their betweenness centrality score.
+    """
 
     average_shortest_path: float
     diameter: float
@@ -42,9 +62,19 @@ class NetworkMetrics:
     betweenness_centrality: dict[str, float]
 
 
+
 @dataclass(slots=True)
 class EdgeRecommendation:
-    """Represent the best new edge found by the optimization search."""
+    """
+    Represent the best new edge found by the optimization search.
+
+    Instance Attributes:
+        - source: The source node ID for the recommended edge.
+        - target: The target node ID for the recommended edge.
+        - weight: The estimated weight (travel time) for the new edge.
+        - baseline_efficiency: The network's global efficiency before adding the edge.
+        - new_efficiency: The network's global efficiency after adding the edge.
+    """
 
     source: str
     target: str
