@@ -232,7 +232,9 @@ def load_trip_route_ids(
 
     return trip_route_ids
 
-
+# The Suffix Patterns and Station Normalizion were done with the help of Github Copilot
+# This section removes platform wording from stop names so stops at the same
+# station can be treated as one physical place.
 _STATION_SUFFIX_PATTERNS = (
     re.compile(r"\s*-\s*(?:Eastbound|Westbound|Northbound|Southbound) Platform(?: Towards .+)?$"),
     re.compile(r"\s*-\s*Subway Platform$"),
@@ -365,7 +367,9 @@ def _distance_km_between(station_a: Station, station_b: Station) -> float:
     c_value = 2 * math.atan2(math.sqrt(a_value), math.sqrt(1 - a_value))
     return earth_radius_km * c_value
 
-
+# The identify_station_complexes function was done with the help of Github Copilot
+# This function groups together stations that should count as one interchange,
+# based on shared routes or very short walking distance.
 def _identify_station_complexes(graph: Graph) -> list[set[str]]:
     """Return interchange complexes built from shared lines and close split stations."""
     parent = {node_id: node_id for node_id in graph.nodes()}

@@ -47,6 +47,8 @@ RECOMMENDATION_COLOR = "#e11d48"
 BACKGROUND_COLOR = "#f7f9fc"
 MAX_NODE_LABELS = 18
 
+# This file was planned and structured by our team, and parts of the implementation were written with the help of GitHub Copilot.
+
 
 def format_station_label(graph: Graph, node_id: str) -> str:
     """Return a human-readable label for a node."""
