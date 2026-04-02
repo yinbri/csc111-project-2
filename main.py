@@ -10,6 +10,10 @@ from graph import Graph
 from metrics import EdgeRecommendation, NetworkMetrics, compute_network_metrics, find_best_new_connection, top_k_central_stations
 
 
+DEFAULT_ROUTE_TYPES = {"1"}
+LARGE_GRAPH_CANDIDATE_LIMIT = 30
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
@@ -41,6 +45,11 @@ def parse_args() -> argparse.Namespace:
         "--include-all-routes",
         action="store_true",
         help="Analyze the full TTC feed instead of defaulting to subway routes only.",
+    )
+    parser.add_argument(
+        "--include-streetcars",
+        action="store_true",
+        help="Include TTC streetcar routes in addition to the default subway network.",
     )
     return parser.parse_args()
 
@@ -90,6 +99,18 @@ def print_recommendation(graph: Graph, recommendation: EdgeRecommendation | None
     print(f"Improvement: {recommendation.improvement_percent:.2f}%")
 
 
+def select_candidate_nodes(graph: Graph, graph_metrics: NetworkMetrics) -> list[str] | None:
+    """Return a bounded candidate node list for larger graphs."""
+    if graph.node_count() <= 150:
+        return None
+
+    ranked_nodes = top_k_central_stations(
+        graph_metrics.betweenness_centrality,
+        k=LARGE_GRAPH_CANDIDATE_LIMIT,
+    )
+    return [node_id for node_id, _score in ranked_nodes]
+
+
 def maybe_write_visualization(
     graph: Graph,
     graph_metrics: NetworkMetrics,
@@ -119,7 +140,13 @@ def main() -> None:
     trips_path = data_dir / args.trips_file
 
     validate_input_files(stops_path, stop_times_path, routes_path, trips_path)
-    route_types = None if args.include_all_routes else {"1"}
+    if args.include_all_routes:
+        route_types = None
+    elif args.include_streetcars:
+        route_types = {"0", "1"}
+    else:
+        route_types = DEFAULT_ROUTE_TYPES
+
     graph = build_graph_from_gtfs(
         stops_path,
         stop_times_path,
@@ -129,7 +156,13 @@ def main() -> None:
     )
     graph_metrics = compute_network_metrics(graph)
     top_stations = top_k_central_stations(graph_metrics.betweenness_centrality, k=5)
-    recommendation = find_best_new_connection(graph, max_distance_km=args.max_distance_km)
+    candidate_nodes = select_candidate_nodes(graph, graph_metrics)
+    recommendation = find_best_new_connection(
+        graph,
+        max_distance_km=args.max_distance_km,
+        baseline_efficiency=graph_metrics.global_efficiency,
+        candidate_nodes=candidate_nodes,
+    )
 
     print_summary(graph, graph_metrics, top_stations)
     print_recommendation(graph, recommendation)

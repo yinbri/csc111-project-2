@@ -5,7 +5,7 @@ custom weighted graph implementation built from GTFS data.
 
 ## Features
 
-- Builds a station-level weighted graph from `stops.txt`, `stop_times.txt`, and `routes.txt`
+- Builds a station-level weighted graph from GTFS stop, route, trip, and stop-time data
 - Uses Dijkstra's algorithm for weighted shortest paths
 - Computes:
   - average shortest path length
@@ -44,14 +44,21 @@ Add your GTFS files to the `data/` directory:
 
 ## Usage
 
-Run the full analysis:
+Run the default analysis:
 
 ```bash
 python3 main.py
 ```
 
-By default, the program analyzes TTC subway routes only so the graph stays in a
-manageable project-sized range. To analyze the full TTC feed instead:
+By default, the program analyzes the TTC subway network only, which matches the
+original project proposal and keeps the optimization search fast enough for a
+TA to run from scratch. To include streetcars as well:
+
+```bash
+python3 main.py --include-streetcars
+```
+
+To analyze the full TTC feed instead:
 
 ```bash
 python3 main.py --include-all-routes
@@ -64,8 +71,9 @@ python3 main.py --max-distance-km 5 --html-output output/network.html
 python3 main.py --no-visualization
 ```
 
-The optimizer defaults to considering candidate new edges within 2 km so the
-search stays practical on the real TTC feed.
+The optimizer defaults to considering candidate new edges within 2 km. For
+larger route selections, it limits the recommendation search to the most
+central stations so the program remains practical to run from scratch.
 
 ## Output
 

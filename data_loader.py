@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -144,12 +145,95 @@ def load_trips(trips_path: str | Path) -> list[TripRecord]:
     return trips
 
 
+def load_route_ids_by_type(routes_path: str | Path, route_types: set[str]) -> set[str]:
+    """Return the route IDs whose GTFS ``route_type`` is in ``route_types``."""
+    route_ids: set[str] = set()
+
+    with Path(routes_path).open(newline="", encoding="utf-8") as csv_file:
+        reader = csv.DictReader(csv_file)
+        for row in reader:
+            route_type = row.get("route_type", "").strip()
+            route_id = row.get("route_id", "").strip()
+            if route_id and route_type in route_types:
+                route_ids.add(route_id)
+
+    return route_ids
+
+
+def load_trip_ids_for_routes(trips_path: str | Path, route_ids: set[str]) -> set[str]:
+    """Return the trip IDs whose route appears in ``route_ids``."""
+    trip_ids: set[str] = set()
+
+    with Path(trips_path).open(newline="", encoding="utf-8") as csv_file:
+        reader = csv.DictReader(csv_file)
+        for row in reader:
+            route_id = row.get("route_id", "").strip()
+            trip_id = row.get("trip_id", "").strip()
+            if trip_id and route_id in route_ids:
+                trip_ids.add(trip_id)
+
+    return trip_ids
+
+
+_STATION_SUFFIX_PATTERNS = (
+    re.compile(r"\s*-\s*(?:Eastbound|Westbound|Northbound|Southbound) Platform(?: Towards .+)?$"),
+    re.compile(r"\s*-\s*Subway Platform$"),
+    re.compile(r"\s*-\s*LRT Platform$"),
+    re.compile(r"\s*-\s*Platform [A-Z]$"),
+    re.compile(r"\s+(?:Eastbound|Westbound|Northbound|Southbound) Platform$"),
+    re.compile(r"\s+Subway Platform$"),
+    re.compile(r"\s+LRT Platform$"),
+)
+
+
+def normalize_station_name(stop_name: str) -> str:
+    """Collapse platform-specific TTC stop names into a physical station name."""
+    normalized = stop_name.strip()
+    for pattern in _STATION_SUFFIX_PATTERNS:
+        normalized = pattern.sub("", normalized)
+    return normalized
+
+
 def group_stop_times_by_trip(stop_times: list[StopTimeRecord]) -> dict[str, list[StopTimeRecord]]:
     """Group stop-time records by trip and sort them by stop sequence."""
     grouped: dict[str, list[StopTimeRecord]] = defaultdict(list)
 
     for record in stop_times:
         grouped[record.trip_id].append(record)
+
+    for trip_records in grouped.values():
+        trip_records.sort(key=lambda record: record.stop_sequence)
+
+    return dict(grouped)
+
+
+def load_relevant_stop_times_by_trip(
+    stop_times_path: str | Path,
+    allowed_trip_ids: set[str] | None = None,
+) -> dict[str, list[StopTimeRecord]]:
+    """Load and group relevant stop-times without materializing the whole file first."""
+    grouped: dict[str, list[StopTimeRecord]] = defaultdict(list)
+
+    with Path(stop_times_path).open(newline="", encoding="utf-8") as csv_file:
+        reader = csv.DictReader(csv_file)
+        for row in reader:
+            trip_id = row["trip_id"].strip()
+            if allowed_trip_ids is not None and trip_id not in allowed_trip_ids:
+                continue
+
+            stop_id = row["stop_id"].strip()
+            if not trip_id or not stop_id:
+                continue
+
+            grouped[trip_id].append(
+                StopTimeRecord(
+                    trip_id=trip_id,
+                    arrival_time=row["arrival_time"].strip(),
+                    departure_time=row["departure_time"].strip(),
+                    stop_id=stop_id,
+                    stop_sequence=int(row["stop_sequence"]),
+                )
+            )
 
     for trip_records in grouped.values():
         trip_records.sort(key=lambda record: record.stop_sequence)
@@ -167,7 +251,8 @@ def aggregate_stations_by_name(raw_stops: dict[str, Station]) -> tuple[dict[str,
     grouped_points: dict[str, list[tuple[str, float, float]]] = defaultdict(list)
 
     for stop in raw_stops.values():
-        grouped_points[stop.name].append((stop.stop_id, stop.latitude, stop.longitude))
+        station_name = normalize_station_name(stop.name)
+        grouped_points[station_name].append((stop.stop_id, stop.latitude, stop.longitude))
 
     station_map: dict[str, Station] = {}
     stop_id_to_station_id: dict[str, str] = {}
@@ -226,15 +311,10 @@ def build_graph_from_gtfs(
         and Path(trips_path).exists()
         and route_types is not None
     ):
-        routes = load_routes(routes_path)
-        route_ids = {route.route_id for route in routes if route.route_type in route_types}
-        trips = load_trips(trips_path)
-        allowed_trip_ids = {trip.trip_id for trip in trips if trip.route_id in route_ids}
+        route_ids = load_route_ids_by_type(routes_path, route_types)
+        allowed_trip_ids = load_trip_ids_for_routes(trips_path, route_ids)
 
-    stop_times = load_stop_times(stop_times_path)
-    if allowed_trip_ids is not None:
-        stop_times = [record for record in stop_times if record.trip_id in allowed_trip_ids]
-    trips = group_stop_times_by_trip(stop_times)
+    trips = load_relevant_stop_times_by_trip(stop_times_path, allowed_trip_ids)
     edge_totals: dict[frozenset[str], float] = defaultdict(float)
     edge_counts: dict[frozenset[str], int] = defaultdict(int)
     used_station_ids: set[str] = set()

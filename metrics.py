@@ -168,6 +168,11 @@ def global_efficiency(all_pairs: dict[str, PathResults]) -> float:
     return efficiency_sum / (node_count * (node_count - 1))
 
 
+def graph_global_efficiency(graph: Graph) -> float:
+    """Compute global efficiency directly from the graph."""
+    return global_efficiency(all_pairs_shortest_paths(graph))
+
+
 def betweenness_centrality(graph: Graph, all_pairs: dict[str, PathResults] | None = None) -> dict[str, float]:
     """Compute weighted betweenness centrality using Brandes' algorithm."""
     if all_pairs is None:
@@ -272,7 +277,12 @@ def estimate_candidate_edge_weight(graph: Graph, source: str, target: str) -> fl
     return max(distance_km * seconds_per_km, 60.0)
 
 
-def find_best_new_connection(graph: Graph, max_distance_km: float | None = None) -> EdgeRecommendation | None:
+def find_best_new_connection(
+    graph: Graph,
+    max_distance_km: float | None = None,
+    baseline_efficiency: float | None = None,
+    candidate_nodes: list[str] | None = None,
+) -> EdgeRecommendation | None:
     """Brute-force search for the best edge to add to the graph.
 
     Args:
@@ -282,9 +292,11 @@ def find_best_new_connection(graph: Graph, max_distance_km: float | None = None)
     if graph.node_count() < 2:
         return None
 
-    baseline_metrics = compute_network_metrics(graph)
+    if baseline_efficiency is None:
+        baseline_efficiency = graph_global_efficiency(graph)
+
     best_recommendation: EdgeRecommendation | None = None
-    nodes = graph.nodes()
+    nodes = candidate_nodes[:] if candidate_nodes is not None else graph.nodes()
 
     for index, source in enumerate(nodes):
         source_station = graph.stations.get(source)
@@ -311,14 +323,14 @@ def find_best_new_connection(graph: Graph, max_distance_km: float | None = None)
             candidate_weight = estimate_candidate_edge_weight(graph, source, target)
             trial_graph = graph.copy()
             trial_graph.add_edge(source, target, candidate_weight)
-            updated_metrics = compute_network_metrics(trial_graph)
+            new_efficiency = graph_global_efficiency(trial_graph)
 
             recommendation = EdgeRecommendation(
                 source=source,
                 target=target,
                 weight=candidate_weight,
-                baseline_efficiency=baseline_metrics.global_efficiency,
-                new_efficiency=updated_metrics.global_efficiency,
+                baseline_efficiency=baseline_efficiency,
+                new_efficiency=new_efficiency,
             )
 
             if (
