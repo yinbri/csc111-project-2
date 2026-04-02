@@ -56,33 +56,49 @@ class NetworkMetrics:
 
 @dataclass(slots=True)
 class EdgeRecommendation:
-    """Represent the best new edge found by the optimization search.
+    """Represent the best new edge found for one optimization objective.
 
     Instance Attributes:
+        - metric_name: The metric this recommendation optimizes.
         - source: The source node ID for the recommended edge.
         - target: The target node ID for the recommended edge.
         - weight: The estimated weight (travel time) for the new edge.
-        - baseline_efficiency: The network's global efficiency before adding the edge.
-        - new_efficiency: The network's global efficiency after adding the edge.
+        - baseline_value: The metric value before adding the edge.
+        - new_value: The metric value after adding the edge.
+        - goal: Whether larger or smaller values are better for this metric.
     """
 
+    metric_name: str
     source: str
     target: str
     weight: float
-    baseline_efficiency: float
-    new_efficiency: float
+    baseline_value: float
+    new_value: float
+    goal: str = "maximize"
 
     @property
     def improvement(self) -> float:
-        """Return the raw improvement in global efficiency."""
-        return self.new_efficiency - self.baseline_efficiency
+        """Return the raw improvement for this recommendation's objective."""
+        if self.goal == "minimize":
+            return self.baseline_value - self.new_value
+        return self.new_value - self.baseline_value
 
     @property
     def improvement_percent(self) -> float:
-        """Return the efficiency improvement percentage."""
-        if self.baseline_efficiency == 0:
-            return math.inf if self.new_efficiency > 0 else 0.0
-        return (self.improvement / self.baseline_efficiency) * 100.0
+        """Return the percentage improvement relative to the baseline value."""
+        if self.baseline_value == 0:
+            return math.inf if self.improvement > 0 else 0.0
+        return (self.improvement / self.baseline_value) * 100.0
+
+
+@dataclass(slots=True)
+class EdgeRecommendationSet:
+    """Bundle the best candidate edge found for each reported metric."""
+
+    average_shortest_path: EdgeRecommendation | None
+    diameter: EdgeRecommendation | None
+    global_efficiency: EdgeRecommendation | None
+    maximum_betweenness: EdgeRecommendation | None
 
 
 def dijkstra(graph: Graph, source: str) -> PathResults:
@@ -235,6 +251,11 @@ def graph_global_efficiency(graph: Graph) -> float:
     return global_efficiency(all_pairs_shortest_paths(graph))
 
 
+def maximum_betweenness_centrality(centrality: dict[str, float]) -> float:
+    """Return the maximum node betweenness score in ``centrality``."""
+    return max(centrality.values(), default=0.0)
+
+
 def betweenness_centrality(graph: Graph, all_pairs: dict[str, PathResults] | None = None) -> dict[str, float]:
     """Compute weighted betweenness centrality using Brandes' algorithm.
 
@@ -372,19 +393,64 @@ def find_best_new_connection(
     baseline_efficiency: float | None = None,
     candidate_nodes: list[str] | None = None,
 ) -> EdgeRecommendation | None:
-    """Brute-force search for the best edge to add to the graph.
+    """Return the best edge for improving global efficiency.
+
+    This wrapper preserves the original API while delegating to the
+    multi-objective search implementation.
+    """
+    recommendations = find_best_new_connections(
+        graph=graph,
+        max_distance_km=max_distance_km,
+        min_distance_km=min_distance_km,
+        min_existing_path_seconds=min_existing_path_seconds,
+        exclude_same_route=exclude_same_route,
+        baseline_metrics=compute_network_metrics(graph) if baseline_efficiency is None else None,
+        candidate_nodes=candidate_nodes,
+        baseline_efficiency=baseline_efficiency,
+    )
+    return recommendations.global_efficiency
+
+
+def find_best_new_connections(
+    graph: Graph,
+    max_distance_km: float | None = None,
+    min_distance_km: float = 0.0,
+    min_existing_path_seconds: float = 0.0,
+    exclude_same_route: bool = False,
+    baseline_metrics: NetworkMetrics | None = None,
+    candidate_nodes: list[str] | None = None,
+    baseline_efficiency: float | None = None,
+) -> EdgeRecommendationSet:
+    """Brute-force search for the best edge to add for each supported metric.
 
     Preconditions:
         - len(graph.adjacency) > 1
         - candidate_nodes is None or all(n in graph.stations for n in candidate_nodes)
     """
     if graph.node_count() < 2:
-        return None
+        return EdgeRecommendationSet(None, None, None, None)
 
+    if baseline_metrics is None:
+        baseline_metrics = compute_network_metrics(graph)
     if baseline_efficiency is None:
-        baseline_efficiency = graph_global_efficiency(graph)
+        baseline_efficiency = baseline_metrics.global_efficiency
 
-    best_recommendation: EdgeRecommendation | None = None
+    baseline_values = {
+        "average_shortest_path": baseline_metrics.average_shortest_path,
+        "diameter": baseline_metrics.diameter,
+        "global_efficiency": baseline_efficiency,
+        "maximum_betweenness": maximum_betweenness_centrality(baseline_metrics.betweenness_centrality),
+    }
+    metric_goals = {
+        "average_shortest_path": "minimize",
+        "diameter": "minimize",
+        "global_efficiency": "maximize",
+        "maximum_betweenness": "minimize",
+    }
+
+    best_recommendations: dict[str, EdgeRecommendation | None] = {
+        metric_name: None for metric_name in baseline_values
+    }
     nodes = candidate_nodes[:] if candidate_nodes is not None else graph.nodes()
     path_cache: dict[str, PathResults] = {}
 
@@ -426,23 +492,35 @@ def find_best_new_connection(
             candidate_weight = estimate_candidate_edge_weight(graph, source, target)
             trial_graph = graph.copy()
             trial_graph.add_edge(source, target, candidate_weight)
-            new_efficiency = graph_global_efficiency(trial_graph)
+            trial_metrics = compute_network_metrics(trial_graph)
+            trial_values = {
+                "average_shortest_path": trial_metrics.average_shortest_path,
+                "diameter": trial_metrics.diameter,
+                "global_efficiency": trial_metrics.global_efficiency,
+                "maximum_betweenness": maximum_betweenness_centrality(trial_metrics.betweenness_centrality),
+            }
 
-            recommendation = EdgeRecommendation(
-                source=source,
-                target=target,
-                weight=candidate_weight,
-                baseline_efficiency=baseline_efficiency,
-                new_efficiency=new_efficiency,
-            )
+            for metric_name, baseline_value in baseline_values.items():
+                recommendation = EdgeRecommendation(
+                    metric_name=metric_name,
+                    source=source,
+                    target=target,
+                    weight=candidate_weight,
+                    baseline_value=baseline_value,
+                    new_value=trial_values[metric_name],
+                    goal=metric_goals[metric_name],
+                )
 
-            if (
-                best_recommendation is None
-                or recommendation.improvement > best_recommendation.improvement
-            ):
-                best_recommendation = recommendation
+                current_best = best_recommendations[metric_name]
+                if current_best is None or recommendation.improvement > current_best.improvement:
+                    best_recommendations[metric_name] = recommendation
 
-    return best_recommendation
+    return EdgeRecommendationSet(
+        average_shortest_path=best_recommendations["average_shortest_path"],
+        diameter=best_recommendations["diameter"],
+        global_efficiency=best_recommendations["global_efficiency"],
+        maximum_betweenness=best_recommendations["maximum_betweenness"],
+    )
 
 
 def top_k_central_stations(centrality: dict[str, float], k: int = 5) -> list[tuple[str, float]]:

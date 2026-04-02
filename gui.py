@@ -25,9 +25,10 @@ from data_loader import build_graph_from_gtfs
 from graph import Graph
 from metrics import (
     EdgeRecommendation,
+    EdgeRecommendationSet,
     NetworkMetrics,
     compute_network_metrics,
-    find_best_new_connection,
+    find_best_new_connections,
     shortest_path_between,
     top_k_central_stations,
 )
@@ -186,6 +187,7 @@ class TransitAnalysisApp:
     graph: Graph | None
     graph_metrics: NetworkMetrics | None
     recommendation: EdgeRecommendation | None
+    recommendations: EdgeRecommendationSet | None
     candidate_limit: int
     station_name_map: dict[str, str]
     station_names: list[str]
@@ -213,6 +215,7 @@ class TransitAnalysisApp:
         self.graph = None
         self.graph_metrics = None
         self.recommendation = None
+        self.recommendations = None
         self.candidate_limit = DEFAULT_CANDIDATE_LIMIT
         self.station_name_map = {}
         self.station_names = []
@@ -454,13 +457,13 @@ class TransitAnalysisApp:
             )
             graph_metrics = compute_network_metrics(graph)
             candidate_nodes = self._select_candidate_nodes(graph, graph_metrics)
-            recommendation = find_best_new_connection(
+            recommendations = find_best_new_connections(
                 graph,
                 max_distance_km=max_distance_km,
                 min_distance_km=DEFAULT_MIN_DISTANCE_KM,
                 min_existing_path_seconds=DEFAULT_MIN_EXISTING_PATH_SECONDS,
                 exclude_same_route=True,
-                baseline_efficiency=graph_metrics.global_efficiency,
+                baseline_metrics=graph_metrics,
                 candidate_nodes=candidate_nodes,
             )
         except FileNotFoundError as error:
@@ -472,7 +475,8 @@ class TransitAnalysisApp:
 
         self.graph = graph
         self.graph_metrics = graph_metrics
-        self.recommendation = recommendation
+        self.recommendations = recommendations
+        self.recommendation = recommendations.global_efficiency
         self.station_name_map = {
             station.name.casefold(): node_id for node_id, station in graph.stations.items()
         }
@@ -565,16 +569,43 @@ class TransitAnalysisApp:
             + "\n".join(top_station_lines)
         )
 
-        if self.recommendation is None:
-            self.recommendation_var.set("No candidate edge recommendation was produced.")
+        if self.recommendations is None:
+            self.recommendation_var.set("No candidate edge recommendations were produced.")
             return
 
+        recommendation_lines = []
+        recommendation_specs = [
+            ("Average shortest path", self.recommendations.average_shortest_path),
+            ("Diameter", self.recommendations.diameter),
+            ("Global efficiency", self.recommendations.global_efficiency),
+            ("Maximum betweenness", self.recommendations.maximum_betweenness),
+        ]
+        for label, recommendation in recommendation_specs:
+            if recommendation is None:
+                recommendation_lines.append(f"{label}: No valid candidate edge found.")
+                continue
+
+            recommendation_lines.append(
+                f"{label}: "
+                f"{format_station_label(self.graph, recommendation.source)} <-> "
+                f"{format_station_label(self.graph, recommendation.target)} "
+                f"({recommendation.improvement_percent:.2f}% improvement)"
+            )
+
         self.recommendation_var.set(
-            "Best new connection\n"
-            f"Source: {format_station_label(self.graph, self.recommendation.source)}\n"
-            f"Target: {format_station_label(self.graph, self.recommendation.target)}\n"
-            f"Estimated travel time: {self.recommendation.weight:.1f} seconds\n"
-            f"Efficiency improvement: {self.recommendation.improvement_percent:.2f}%"
+            "Best new connections by metric\n"
+            + "\n".join(recommendation_lines)
+            + (
+                ""
+                if self.recommendation is None
+                else (
+                    "\n\nMap highlight\n"
+                    f"{format_station_label(self.graph, self.recommendation.source)} <-> "
+                    f"{format_station_label(self.graph, self.recommendation.target)} "
+                    f"({self.recommendation.weight:.1f} seconds, "
+                    f"{self.recommendation.improvement_percent:.2f}% efficiency improvement)"
+                )
+            )
         )
 
     def _reset_zoom(self) -> None:
