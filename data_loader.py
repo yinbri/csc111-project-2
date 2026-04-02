@@ -19,15 +19,13 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-
 from graph import Graph, Station
 
 
 
 @dataclass(slots=True, frozen=True)
 class StopTimeRecord:
-    """
-    Represent a single row from stop_times.txt.
+    """Represent a single row from stop_times.txt.
 
     Instance Attributes:
         - trip_id: The trip ID for this stop time record.
@@ -47,8 +45,7 @@ class StopTimeRecord:
 
 @dataclass(slots=True, frozen=True)
 class RouteRecord:
-    """
-    Represent a single row from routes.txt.
+    """Represent a single row from routes.txt.
 
     Instance Attributes:
         - route_id: The unique route ID.
@@ -66,8 +63,7 @@ class RouteRecord:
 
 @dataclass(slots=True, frozen=True)
 class TripRecord:
-    """
-    Represent a single row from trips.txt.
+    """Represent a single row from trips.txt.
 
     Instance Attributes:
         - route_id: The route ID for this trip.
@@ -83,8 +79,8 @@ class TripRecord:
 def parse_time_to_seconds(time_str: str) -> int:
     """Convert a GTFS time string like ``HH:MM:SS`` to total seconds.
 
-    GTFS allows hour values beyond 24 for after-midnight service, and this
-    parser supports that directly.
+    Preconditions:
+        - time_str.count(":") == 2
     """
     hours, minutes, seconds = (int(part) for part in time_str.strip().split(":"))
     return hours * 3600 + minutes * 60 + seconds

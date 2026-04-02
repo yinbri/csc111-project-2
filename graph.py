@@ -12,15 +12,12 @@ This file is Copyright (c) 2026 Aarav Chhabra, Brian Yin, Sam Wang, and Kevin Li
 """
 
 from __future__ import annotations
-
 from dataclasses import dataclass, field
-
 
 
 @dataclass(slots=True, frozen=True)
 class Station:
-    """
-    A station-level node in the TTC network.
+    """A station-level node in the TTC network.
 
     Instance Attributes:
         - stop_id: The unique GTFS stop ID for this station.
@@ -36,8 +33,7 @@ class Station:
 
 @dataclass
 class Graph:
-    """
-    Weighted graph implemented with adjacency dictionaries.
+    """Weighted graph implemented with adjacency dictionaries.
 
     The project models a transit network, so this graph is undirected by
     default and edge weights represent travel time in seconds.
@@ -51,19 +47,30 @@ class Graph:
 
 
     def add_station(self, station: Station) -> None:
-        """Add a station node and its metadata to the graph."""
+        """Add a station node and its metadata to the graph.
+
+        Preconditions:
+            - station.stop_id not in self.stations
+        """
         self.stations[station.stop_id] = station
         self.adjacency.setdefault(station.stop_id, {})
 
 
     def add_node(self, node: str) -> None:
-        """Add a node to the graph if it does not already exist."""
+        """Add a node to the graph if it does not already exist.
+
+        Preconditions:
+            - node is not None and node != ""
+        """
         self.adjacency.setdefault(node, {})
 
 
     def add_edge(self, source: str, target: str, weight: float, *, bidirectional: bool = True) -> None:
         """Add a weighted edge to the graph.
 
+        Preconditions:
+            - source != "" and target != ""
+            - weight >= 0
         Raises a ValueError if the weight is negative or either endpoint is empty.
         """
         if not source or not target:
@@ -80,21 +87,39 @@ class Graph:
 
 
     def remove_edge(self, source: str, target: str, *, bidirectional: bool = True) -> None:
-        """Remove an edge from the graph if it exists."""
+        """Remove an edge from the graph if it exists.
+
+        Preconditions:
+            - source in self.adjacency
+            - target in self.adjacency
+        """
         self.adjacency.get(source, {}).pop(target, None)
         if bidirectional:
             self.adjacency.get(target, {}).pop(source, None)
 
     def has_edge(self, source: str, target: str) -> bool:
-        """Return whether an edge exists from ``source`` to ``target``."""
+        """Return whether an edge exists from ``source`` to ``target``.
+
+        Preconditions:
+            - source in self.adjacency
+            - target in self.adjacency
+        """
         return target in self.adjacency.get(source, {})
 
     def neighbors(self, node: str) -> dict[str, float]:
-        """Return the neighbors of ``node`` and their weights."""
+        """Return the neighbors of ``node`` and their weights.
+
+        Preconditions:
+            - node in self.adjacency
+        """
         return self.adjacency.get(node, {})
 
     def degree(self, node: str) -> int:
-        """Return the number of adjacent neighbors for ``node``."""
+        """Return the number of adjacent neighbors for ``node``.
+
+        Preconditions:
+            - node in self.adjacency
+        """
         return len(self.adjacency.get(node, {}))
 
     def node_count(self) -> int:

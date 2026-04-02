@@ -12,17 +12,18 @@ This file is Copyright (c) 2026 Aarav Chhabra, Brian Yin, Sam Wang, and Kevin Li
 """
 
 from __future__ import annotations
-
 from pathlib import Path
-
 import plotly.graph_objects as go
-
 from graph import Graph
 from metrics import EdgeRecommendation
 
 
 def build_edge_trace(graph: Graph) -> go.Scatter:
-    """Create the Plotly trace for the network's existing edges."""
+    """Create the Plotly trace for the network's existing edges.
+
+    Preconditions:
+        - len(graph.adjacency) > 0
+    """
     x_values = []
     y_values = []
 

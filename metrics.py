@@ -12,19 +12,15 @@ This file is Copyright (c) 2026 Aarav Chhabra, Brian Yin, Sam Wang, and Kevin Li
 """
 
 from __future__ import annotations
-
 import heapq
 import math
 from dataclasses import dataclass
-
 from graph import Graph
-
 
 
 @dataclass(slots=True)
 class PathResults:
-    """
-    Store the result of running Dijkstra from one source node.
+    """Store the result of running Dijkstra from one source node.
 
     Instance Attributes:
         - source: The source node ID.
@@ -42,12 +38,9 @@ class PathResults:
     path_counts: dict[str, float]
     visit_order: list[str]
 
-
-
 @dataclass(slots=True)
 class NetworkMetrics:
-    """
-    Bundle the main graph metrics reported by the program.
+    """Bundle the main graph metrics reported by the program.
 
     Instance Attributes:
         - average_shortest_path: The average shortest path length in the network.
@@ -61,12 +54,9 @@ class NetworkMetrics:
     global_efficiency: float
     betweenness_centrality: dict[str, float]
 
-
-
 @dataclass(slots=True)
 class EdgeRecommendation:
-    """
-    Represent the best new edge found by the optimization search.
+    """Represent the best new edge found by the optimization search.
 
     Instance Attributes:
         - source: The source node ID for the recommended edge.
@@ -96,7 +86,11 @@ class EdgeRecommendation:
 
 
 def dijkstra(graph: Graph, source: str) -> PathResults:
-    """Compute single-source shortest paths with Dijkstra's algorithm."""
+    """Compute single-source shortest paths with Dijkstra's algorithm.
+
+    Preconditions:
+        - source in graph.adjacency
+    """
     nodes = graph.nodes()
     distances = {node: math.inf for node in nodes}
     previous = {node: None for node in nodes}
@@ -141,7 +135,12 @@ def dijkstra(graph: Graph, source: str) -> PathResults:
 
 
 def reconstruct_path(previous: dict[str, str | None], source: str, target: str) -> list[str]:
-    """Reconstruct one shortest path from ``source`` to ``target``."""
+    """Reconstruct one shortest path from ``source`` to ``target``.
+
+    Preconditions:
+        - source in previous
+        - target in previous
+    """
     path: list[str] = []
     current: str | None = target
 
@@ -158,7 +157,12 @@ def reconstruct_path(previous: dict[str, str | None], source: str, target: str) 
 
 
 def all_pairs_shortest_paths(graph: Graph) -> dict[str, PathResults]:
-    """Run Dijkstra from every node in the graph."""
+    """
+    Run Dijkstra from every node in the graph.
+
+    Preconditions:
+        - len(graph.adjacency) > 0
+    """
     return {node: dijkstra(graph, node) for node in graph.nodes()}
 
 
@@ -215,7 +219,11 @@ def graph_global_efficiency(graph: Graph) -> float:
 
 
 def betweenness_centrality(graph: Graph, all_pairs: dict[str, PathResults] | None = None) -> dict[str, float]:
-    """Compute weighted betweenness centrality using Brandes' algorithm."""
+    """Compute weighted betweenness centrality using Brandes' algorithm.
+
+    Preconditions:
+        - len(graph.adjacency) > 0
+    """
     if all_pairs is None:
         all_pairs = all_pairs_shortest_paths(graph)
 
@@ -244,7 +252,11 @@ def betweenness_centrality(graph: Graph, all_pairs: dict[str, PathResults] | Non
 
 
 def compute_network_metrics(graph: Graph) -> NetworkMetrics:
-    """Compute all required high-level network metrics."""
+    """Compute all required high-level network metrics.
+
+    Preconditions:
+        - len(graph.adjacency) > 0
+    """
     all_pairs = all_pairs_shortest_paths(graph)
     return NetworkMetrics(
         average_shortest_path=average_shortest_path_length(all_pairs),
@@ -255,7 +267,14 @@ def compute_network_metrics(graph: Graph) -> NetworkMetrics:
 
 
 def geographic_distance_hint(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Return the haversine distance between two coordinates in kilometers."""
+    """Return the haversine distance between two coordinates in kilometers.
+
+    Preconditions:
+        - -90 <= lat1 <= 90
+        - -90 <= lat2 <= 90
+        - -180 <= lon1 <= 180
+        - -180 <= lon2 <= 180
+    """
     earth_radius_km = 6371.0
     lat1_rad = math.radians(lat1)
     lon1_rad = math.radians(lon1)
@@ -273,7 +292,11 @@ def geographic_distance_hint(lat1: float, lon1: float, lat2: float, lon2: float)
 
 
 def _observed_seconds_per_km(graph: Graph) -> float | None:
-    """Estimate travel speed from the graph's existing edges."""
+    """Estimate travel speed from the graph's existing edges.
+
+    Preconditions:
+        - len(graph.adjacency) > 0
+    """
     ratios = []
 
     for source, target, weight in graph.undirected_edges():
@@ -300,7 +323,12 @@ def _observed_seconds_per_km(graph: Graph) -> float | None:
 
 
 def estimate_candidate_edge_weight(graph: Graph, source: str, target: str) -> float:
-    """Estimate the travel-time weight of a hypothetical new connection."""
+    """Estimate the travel-time weight of a hypothetical new connection.
+
+    Preconditions:
+        - source in graph.stations
+        - target in graph.stations
+    """
     source_station = graph.stations[source]
     target_station = graph.stations[target]
     distance_km = geographic_distance_hint(
@@ -326,9 +354,9 @@ def find_best_new_connection(
 ) -> EdgeRecommendation | None:
     """Brute-force search for the best edge to add to the graph.
 
-    Args:
-        graph: The current TTC graph.
-        max_distance_km: Optional geographic filter for candidate edges.
+    Preconditions:
+        - len(graph.adjacency) > 1
+        - candidate_nodes is None or all(n in graph.stations for n in candidate_nodes)
     """
     if graph.node_count() < 2:
         return None
