@@ -1,4 +1,15 @@
-"""Command-line entry point for the TTC graph analysis project."""
+"""CSC111 Winter 2026 Project 2: TTC Graph Analysis Main
+
+Module Description
+==================
+This module serves as the command-line entry point for the TTC network analysis project. It parses arguments, 
+loads data, and coordinates the execution of graph algorithms and visualizations for the Toronto TTC network.
+
+Copyright and Usage Information
+===============================
+
+This file is Copyright (c) 2026 Aarav Chhabra, Brian Yin, Sam Wang, and Kevin Liu
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,15 @@
-"""Plotly-based visualization helpers for the TTC network project."""
+"""CSC111 Winter 2026 Project 2: TTC Network Visualization
+
+Module Description
+==================
+This module provides Plotly-based visualization helpers for the TTC network project. It includes functions to 
+visualize the network graph, recommended connections, and other analysis results.
+
+Copyright and Usage Information
+===============================
+
+This file is Copyright (c) 2026 Aarav Chhabra, Brian Yin, Sam Wang, and Kevin Liu
+"""
 
 from __future__ import annotations
 

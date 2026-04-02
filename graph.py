@@ -1,4 +1,15 @@
-"""Core graph data structures for the TTC network project."""
+"""CSC111 Winter 2026 Project 2: TTC Graph Structures
+
+Module Description
+==================
+This module defines the core graph data structures for representing the Toronto TTC network. It includes 
+classes for stations and the weighted graph used for network analysis and optimization.
+
+Copyright and Usage Information
+===============================
+
+This file is Copyright (c) 2026 Aarav Chhabra, Brian Yin, Sam Wang, and Kevin Liu
+"""
 
 from __future__ import annotations
 

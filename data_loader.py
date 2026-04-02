@@ -1,4 +1,16 @@
-"""Utilities for loading TTC GTFS data and building the project graph."""
+"""CSC111 Winter 2026 Project 2: TTC Data Loader
+
+Module Description
+==================
+This module provides utilities for loading Toronto Transit Commission (TTC) GTFS data files and building the graph 
+representation used throughout the project. It includes data classes and functions for parsing GTFS files and 
+constructing the network graph.
+
+Copyright and Usage Information
+===============================
+
+This file is Copyright (c) 2026 Aarav Chhabra, Brian Yin, Sam Wang, and Kevin Liu
+"""
 
 from __future__ import annotations
 

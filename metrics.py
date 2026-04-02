@@ -1,4 +1,15 @@
-"""Graph algorithms and network metrics for the TTC project."""
+"""CSC111 Winter 2026 Project 2: TTC Network Metrics
+
+Module Description
+==================
+This module implements graph algorithms and computes network metrics for the Toronto TTC project. 
+It provides functions for centrality, shortest paths, and recommendations for improving the transit network.
+
+Copyright and Usage Information
+===============================
+
+This file is Copyright (c) 2026 Aarav Chhabra, Brian Yin, Sam Wang, and Kevin Liu
+"""
 
 from __future__ import annotations
 
