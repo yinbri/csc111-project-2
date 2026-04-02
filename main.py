@@ -14,20 +14,8 @@ This file is Copyright (c) 2026 Aarav Chhabra, Brian Yin, Sam Wang, and Kevin Li
 
 from __future__ import annotations
 
-import argparse
 from pathlib import Path
-
-def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Analyze and optimize the Toronto TTC network using graph algorithms.",
-    )
-    parser.add_argument("--data-dir", type=Path, default=Path("data"), help="Directory containing GTFS files.")
-    parser.add_argument("--stops-file", type=str, default="stops.txt", help="GTFS stops file name.")
-    parser.add_argument("--stop-times-file", type=str, default="stop_times.txt", help="GTFS stop_times file name.")
-    parser.add_argument("--routes-file", type=str, default="routes.txt", help="GTFS routes file name.")
-    parser.add_argument("--trips-file", type=str, default="trips.txt", help="GTFS trips file name.")
-    return parser.parse_args()
+from gui import launch_app
 
 
 def validate_input_files(stops_path: Path, stop_times_path: Path, routes_path: Path, trips_path: Path) -> None:
@@ -40,22 +28,25 @@ def validate_input_files(stops_path: Path, stop_times_path: Path, routes_path: P
 
 def main() -> None:
     """Launch the TTC desktop application."""
-    args = parse_args()
-    data_dir = args.data_dir
-    stops_path = data_dir / args.stops_file
-    stop_times_path = data_dir / args.stop_times_file
-    routes_path = data_dir / args.routes_file
-    trips_path = data_dir / args.trips_file
+    data_dir = Path("data")
+    stops_file = "stops.txt"
+    stop_times_file = "stop_times.txt"
+    routes_file = "routes.txt"
+    trips_file = "trips.txt"
+
+    stops_path = data_dir / stops_file
+    stop_times_path = data_dir / stop_times_file
+    routes_path = data_dir / routes_file
+    trips_path = data_dir / trips_file
 
     validate_input_files(stops_path, stop_times_path, routes_path, trips_path)
-    from gui import launch_app
 
     launch_app(
         data_dir=data_dir,
-        stops_file=args.stops_file,
-        stop_times_file=args.stop_times_file,
-        routes_file=args.routes_file,
-        trips_file=args.trips_file,
+        stops_file=stops_file,
+        stop_times_file=stop_times_file,
+        routes_file=routes_file,
+        trips_file=trips_file,
     )
 
 
