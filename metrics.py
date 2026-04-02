@@ -274,7 +274,7 @@ def geographic_distance_hint(lat1: float, lon1: float, lat2: float, lon2: float)
 
 def _observed_seconds_per_km(graph: Graph) -> float | None:
     """Estimate travel speed from the graph's existing edges."""
-    ratios: list[float] = []
+    ratios = []
 
     for source, target, weight in graph.undirected_edges():
         source_station = graph.stations.get(source)

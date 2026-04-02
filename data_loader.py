@@ -92,7 +92,7 @@ def parse_time_to_seconds(time_str: str) -> int:
 
 def load_stops(stops_path: str | Path) -> dict[str, Station]:
     """Load raw stop metadata keyed by GTFS stop ID."""
-    stops: dict[str, Station] = {}
+    stops = {}
 
     with Path(stops_path).open(newline="", encoding="utf-8") as csv_file:
         reader = csv.DictReader(csv_file)
@@ -114,7 +114,7 @@ def load_stops(stops_path: str | Path) -> dict[str, Station]:
 
 def load_stop_times(stop_times_path: str | Path) -> list[StopTimeRecord]:
     """Load rows from ``stop_times.txt``."""
-    records: list[StopTimeRecord] = []
+    records = []
 
     with Path(stop_times_path).open(newline="", encoding="utf-8") as csv_file:
         reader = csv.DictReader(csv_file)
@@ -143,7 +143,7 @@ def load_routes(routes_path: str | Path) -> list[RouteRecord]:
     The route data is not required for the core graph construction in this
     version, but it is loaded for completeness and future extension.
     """
-    routes: list[RouteRecord] = []
+    routes = []
 
     with Path(routes_path).open(newline="", encoding="utf-8") as csv_file:
         reader = csv.DictReader(csv_file)
@@ -162,7 +162,7 @@ def load_routes(routes_path: str | Path) -> list[RouteRecord]:
 
 def load_trips(trips_path: str | Path) -> list[TripRecord]:
     """Load trip metadata from ``trips.txt``."""
-    trips: list[TripRecord] = []
+    trips = []
 
     with Path(trips_path).open(newline="", encoding="utf-8") as csv_file:
         reader = csv.DictReader(csv_file)
@@ -186,7 +186,7 @@ def load_trips(trips_path: str | Path) -> list[TripRecord]:
 
 def load_route_ids_by_type(routes_path: str | Path, route_types: set[str]) -> set[str]:
     """Return the route IDs whose GTFS ``route_type`` is in ``route_types``."""
-    route_ids: set[str] = set()
+    route_ids = set()
 
     with Path(routes_path).open(newline="", encoding="utf-8") as csv_file:
         reader = csv.DictReader(csv_file)
@@ -201,7 +201,7 @@ def load_route_ids_by_type(routes_path: str | Path, route_types: set[str]) -> se
 
 def load_trip_ids_for_routes(trips_path: str | Path, route_ids: set[str]) -> set[str]:
     """Return the trip IDs whose route appears in ``route_ids``."""
-    trip_ids: set[str] = set()
+    trip_ids = set()
 
     with Path(trips_path).open(newline="", encoding="utf-8") as csv_file:
         reader = csv.DictReader(csv_file)
@@ -235,7 +235,7 @@ def normalize_station_name(stop_name: str) -> str:
 
 def group_stop_times_by_trip(stop_times: list[StopTimeRecord]) -> dict[str, list[StopTimeRecord]]:
     """Group stop-time records by trip and sort them by stop sequence."""
-    grouped: dict[str, list[StopTimeRecord]] = defaultdict(list)
+    grouped = defaultdict(list)
 
     for record in stop_times:
         grouped[record.trip_id].append(record)
@@ -251,7 +251,7 @@ def load_relevant_stop_times_by_trip(
     allowed_trip_ids: set[str] | None = None,
 ) -> dict[str, list[StopTimeRecord]]:
     """Load and group relevant stop-times without materializing the whole file first."""
-    grouped: dict[str, list[StopTimeRecord]] = defaultdict(list)
+    grouped = defaultdict(list)
 
     with Path(stop_times_path).open(newline="", encoding="utf-8") as csv_file:
         reader = csv.DictReader(csv_file)
@@ -287,14 +287,14 @@ def aggregate_stations_by_name(raw_stops: dict[str, Station]) -> tuple[dict[str,
     station or platform grouping. This project works at the station level, so
     we aggregate by ``stop_name`` and average the coordinates.
     """
-    grouped_points: dict[str, list[tuple[str, float, float]]] = defaultdict(list)
+    grouped_points = defaultdict(list)
 
     for stop in raw_stops.values():
         station_name = normalize_station_name(stop.name)
         grouped_points[station_name].append((stop.stop_id, stop.latitude, stop.longitude))
 
-    station_map: dict[str, Station] = {}
-    stop_id_to_station_id: dict[str, str] = {}
+    station_map = {}
+    stop_id_to_station_id = {}
 
     for station_name, points in grouped_points.items():
         avg_lat = sum(point[1] for point in points) / len(points)
@@ -354,9 +354,9 @@ def build_graph_from_gtfs(
         allowed_trip_ids = load_trip_ids_for_routes(trips_path, route_ids)
 
     trips = load_relevant_stop_times_by_trip(stop_times_path, allowed_trip_ids)
-    edge_totals: dict[frozenset[str], float] = defaultdict(float)
-    edge_counts: dict[frozenset[str], int] = defaultdict(int)
-    used_station_ids: set[str] = set()
+    edge_totals = defaultdict(float)
+    edge_counts = defaultdict(int)
+    used_station_ids = set()
 
     for records in trips.values():
         for index in range(len(records) - 1):

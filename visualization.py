@@ -23,8 +23,8 @@ from metrics import EdgeRecommendation
 
 def build_edge_trace(graph: Graph) -> go.Scatter:
     """Create the Plotly trace for the network's existing edges."""
-    x_values: list[float | None] = []
-    y_values: list[float | None] = []
+    x_values = []
+    y_values = []
 
     for source, target, _weight in graph.undirected_edges():
         source_station = graph.stations.get(source)
@@ -47,11 +47,11 @@ def build_edge_trace(graph: Graph) -> go.Scatter:
 
 def build_node_trace(graph: Graph, centrality: dict[str, float]) -> go.Scatter:
     """Create the Plotly trace for graph nodes."""
-    x_values: list[float] = []
-    y_values: list[float] = []
-    marker_colors: list[float] = []
-    marker_sizes: list[float] = []
-    hover_text: list[str] = []
+    x_values = []
+    y_values = []
+    marker_colors = []
+    marker_sizes = []
+    hover_text = []
 
     max_centrality = max(centrality.values(), default=0.0)
 
@@ -121,7 +121,7 @@ def create_network_figure(
     recommendation: EdgeRecommendation | None = None,
 ) -> go.Figure:
     """Create the interactive Plotly figure for the network."""
-    traces: list[go.Scatter] = [build_edge_trace(graph), build_node_trace(graph, centrality)]
+    traces = [build_edge_trace(graph), build_node_trace(graph, centrality)]
     recommended_trace = build_recommended_edge_trace(graph, recommendation)
     if recommended_trace is not None:
         traces.append(recommended_trace)

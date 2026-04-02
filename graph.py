@@ -107,8 +107,8 @@ class Graph:
 
     def undirected_edges(self) -> list[tuple[str, str, float]]:
         """Return a deduplicated list of edges for an undirected graph."""
-        output: list[tuple[str, str, float]] = []
-        seen: set[frozenset[str]] = set()
+        output = []
+        seen = set()
 
         for source, neighbors in self.adjacency.items():
             for target, weight in neighbors.items():
